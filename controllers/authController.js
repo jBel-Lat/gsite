@@ -57,12 +57,7 @@ const normalizeBcryptHash = (hash) => {
 };
 
 const normalizeRoleForFrontend = (rawRole) => {
-  const role = String(rawRole || '').toLowerCase();
-  if (!role) return '';
-  if (role === 'developer_head' || role === 'developer_member') return 'developer';
-  if (role === 'multimedia_head' || role === 'multimedia_member') return 'multimedia';
-  if (role.startsWith('officer')) return 'officer';
-  return role;
+  return String(rawRole || '').toLowerCase();
 };
 
 const isLikelyBcryptHash = (hash) => /^\$2[aby]\$\d\d\$/.test(String(hash || ''));

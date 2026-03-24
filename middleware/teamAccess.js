@@ -1,6 +1,14 @@
 const TEAM_ROLE_ALLOW = {
   developer: ['developer_head', 'developer_member'],
-  multimedia: ['multimedia_head', 'multimedia_member'],
+  multimedia: [
+    'multimedia_head',
+    'multimedia',
+    'multimedia_member',
+    'photographer',
+    'videographer',
+    'graphic_designer',
+    'documentator',
+  ],
 };
 
 const requireTeamAccess = (team) => {

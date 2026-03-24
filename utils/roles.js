@@ -1,6 +1,10 @@
 const TEAM_ROLE_MAP = {
   multimedia_head: 'multimedia',
   multimedia_member: 'multimedia',
+  photographer: 'multimedia',
+  videographer: 'multimedia',
+  graphic_designer: 'multimedia',
+  documentator: 'multimedia',
   developer_head: 'developer',
   developer_member: 'developer',
 };
@@ -13,4 +17,3 @@ module.exports = {
   getTeamFromRole,
   isHeadRole,
 };
-

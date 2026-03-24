@@ -23,7 +23,7 @@ const getTeamPosts = async (team) => {
       `,
       [team]
     );
-    return rows;
+    return rows.map((item) => ({ ...item, allow_comments: true, source: 'post' }));
   } catch (error) {
     if (isMissingTableError(error)) {
       return [];
@@ -46,7 +46,7 @@ const getTeamPosts = async (team) => {
       `,
       [team]
     );
-    return rows;
+    return rows.map((item) => ({ ...item, allow_comments: true, source: 'post' }));
   } catch (error) {
     if (isMissingTableError(error)) {
       return [];
@@ -72,9 +72,41 @@ const getTeamPosts = async (team) => {
         LIMIT 30
       `
     );
-    return rows;
+    return rows.map((item) => ({ ...item, allow_comments: true, source: 'post' }));
   } catch (error) {
     if (isMissingTableError(error) || isUnknownColumnError(error)) {
+      return [];
+    }
+    throw error;
+  }
+};
+
+const getMultimediaHeadAnnouncements = async () => {
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT a.id, a.title, a.description, a.image, a.created_at,
+               u.name AS author_name, u.profile_picture AS author_image
+        FROM announcements a
+        LEFT JOIN users u ON u.id = a.posted_by
+        WHERE a.target_audience IN ('students', 'all')
+        ORDER BY a.created_at DESC
+      `
+    );
+
+    return rows.map((item) => ({
+      id: `announcement_${item.id}`,
+      title: item.title,
+      details: item.description,
+      image: item.image ? String(item.image).split('/').pop() : null,
+      created_at: item.created_at,
+      author_name: item.author_name || 'Multimedia Head',
+      author_image: item.author_image || 'default.png',
+      allow_comments: false,
+      source: 'announcement',
+    }));
+  } catch (error) {
+    if (isMissingTableError(error)) {
       return [];
     }
     throw error;
@@ -174,12 +206,19 @@ const insertComment = async ({ postId, name, comment }) => {
 
 const dashboardData = async (_req, res) => {
   try {
-    const [multimediaPosts, developerPosts, events, comments] = await Promise.all([
+    const [multimediaPosts, multimediaAnnouncements, developerPosts, events, comments] = await Promise.all([
       getTeamPosts('multimedia'),
+      getMultimediaHeadAnnouncements(),
       getTeamPosts('developer'),
       getEvents(),
       getCommentsForDashboard(),
     ]);
+
+    const multimediaFeed = [...multimediaAnnouncements, ...multimediaPosts].sort((a, b) => {
+      const first = new Date(a.created_at).getTime() || 0;
+      const second = new Date(b.created_at).getTime() || 0;
+      return second - first;
+    });
 
     const groupedComments = comments.reduce((acc, item) => {
       const key = String(item.post_id);
@@ -190,7 +229,7 @@ const dashboardData = async (_req, res) => {
 
     res.json({
       ok: true,
-      multimedia_posts: multimediaPosts,
+      multimedia_posts: multimediaFeed,
       developer_posts: developerPosts,
       comments: groupedComments,
       events,

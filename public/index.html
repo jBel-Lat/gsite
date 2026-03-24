@@ -199,9 +199,21 @@
           </div>
         `).join('');
 
-        const imageHtml = post.image
-          ? `<img src="/uploads/posts/${encodeURIComponent(post.image)}" class="post-image" alt="Post">`
+        const imageSrc = post.image
+          ? (String(post.image).includes('/')
+            ? `/${String(post.image).replace(/^\/+/, '')}`
+            : `/uploads/posts/${encodeURIComponent(post.image)}`)
           : '';
+        const imageHtml = imageSrc ? `<img src="${imageSrc}" class="post-image" alt="Post">` : '';
+        const commentFormHtml = post.allow_comments === false
+          ? '<p style="font-size:12px; opacity:0.8;">Comments are disabled for this announcement.</p>'
+          : `
+              <form class="comment-form" data-post-id="${post.id}" style="display:flex; gap:8px; margin-top:10px;">
+                <input type="text" name="name" class="form-control form-control-sm" placeholder="Your Name" style="width:120px;" required>
+                <input type="text" name="comment" class="form-control form-control-sm" placeholder="Add comment..." required>
+                <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane"></i></button>
+              </form>
+            `;
 
         return `
           <div class="post-card">
@@ -219,11 +231,7 @@
             </div>
             <div class="comment-list">
               ${commentsHtml}
-              <form class="comment-form" data-post-id="${post.id}" style="display:flex; gap:8px; margin-top:10px;">
-                <input type="text" name="name" class="form-control form-control-sm" placeholder="Your Name" style="width:120px;" required>
-                <input type="text" name="comment" class="form-control form-control-sm" placeholder="Add comment..." required>
-                <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane"></i></button>
-              </form>
+              ${commentFormHtml}
             </div>
           </div>
         `;
@@ -321,6 +329,11 @@
         name: formData.get('name'),
         comment: formData.get('comment')
       };
+
+      if (!Number.isFinite(payload.post_id) || payload.post_id <= 0) {
+        showMessage('error', 'Comments are disabled for this announcement.');
+        return;
+      }
 
       try {
         const response = await fetch('/api/student/comments', {
