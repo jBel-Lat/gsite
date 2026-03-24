@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CCS GSITE</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #0f766e;
+      --border: #dbe3ef;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: radial-gradient(circle at top right, #d8f3ff, var(--bg) 48%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(720px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+    }
+    h1 { margin: 0 0 8px; font-size: 1.8rem; }
+    p { margin: 0 0 16px; color: var(--muted); }
+    .status {
+      border-left: 4px solid var(--accent);
+      background: #f0fdfa;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(0.95); }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Frontend Is Served by Node/Express</h1>
+    <p>
+      This page is loaded from <code>public/index.html</code>. If you can see this on Render,
+      your frontend static hosting is working.
+    </p>
+    <button id="checkApiBtn" type="button">Check /api/health</button>
+    <div id="apiStatus" class="status">Waiting for API check...</div>
+  </main>
+
+  <script>
+    const button = document.getElementById('checkApiBtn');
+    const statusEl = document.getElementById('apiStatus');
+
+    async function checkApi() {
+      statusEl.textContent = 'Checking /api/health...';
+      try {
+        const response = await fetch('/api/health');
+        const payload = await response.json();
+        statusEl.textContent = JSON.stringify(payload, null, 2);
+      } catch (error) {
+        statusEl.textContent = `Request failed: ${error.message}`;
+      }
+    }
+
+    button.addEventListener('click', checkApi);
+    checkApi();
+  </script>
+</body>
+</html>
