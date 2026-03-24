@@ -1173,6 +1173,30 @@ const listActivityLogs = async (req, res) => {
   }
 };
 
+const clearActivityLogs = async (req, res) => {
+  try {
+    const [countRows] = await pool.query('SELECT COUNT(*) AS total FROM activity_logs');
+    const deletedCount = Number(countRows?.[0]?.total || 0);
+
+    await pool.query('DELETE FROM activity_logs');
+
+    return res.json({
+      ok: true,
+      message: 'Activity logs cleared successfully',
+      deleted_count: deletedCount,
+    });
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return res.json({
+        ok: true,
+        message: 'Activity logs table not found; nothing to clear',
+        deleted_count: 0,
+      });
+    }
+    throw error;
+  }
+};
+
 const getReports = async (_req, res) => {
   const [[statusRows], [teamRows], [memberRows], [monthlyRows]] = await Promise.all([
     pool.query(
@@ -1347,6 +1371,7 @@ module.exports = {
   updateAnnouncement,
   deleteAnnouncement,
   listActivityLogs,
+  clearActivityLogs,
   getReports,
   listNotifications,
   getProfile,

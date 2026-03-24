@@ -39,10 +39,6 @@
           <h2 id="pageTitle">Dashboard</h2>
           <p class="muted" id="guardMessage">Checking access...</p>
         </div>
-        <div class="mm-header-right">
-          <button class="mm-icon-btn" id="sidebarToggle" title="Toggle Sidebar"><i class="fa-solid fa-bars"></i></button>
-          <button class="mm-icon-btn" id="refreshBtn" title="Refresh"><i class="fa-solid fa-rotate"></i></button>
-        </div>
       </header>
 
       <section class="mm-panel" id="noticePanel"></section>
@@ -248,7 +244,10 @@
         <article class="mm-panel">
           <div class="mm-panel-header">
             <h3>Activity Logs</h3>
-            <div class="mm-tools"><input type="search" id="logSearch" placeholder="Search action/details/user"></div>
+            <div class="mm-tools">
+              <input type="search" id="logSearch" placeholder="Search action/details/user">
+              <button type="button" class="mm-btn ghost" id="clearLogsBtn">Clear All Logs</button>
+            </div>
           </div>
           <div class="mm-table-wrap">
             <table class="mm-table" id="logsTable">
@@ -317,6 +316,6 @@
     </main>
   </div>
 
-  <script src="/js/multimedia-dashboard.js?v=20260325d"></script>
+  <script src="/js/multimedia-dashboard.js?v=20260325f"></script>
 </body>
 </html>

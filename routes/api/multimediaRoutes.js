@@ -91,6 +91,7 @@ router.put(
 router.delete('/announcements/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.deleteAnnouncement));
 
 router.get('/logs', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listActivityLogs));
+router.delete('/logs', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.clearActivityLogs));
 router.get('/reports', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getReports));
 router.get('/notifications', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listNotifications));
 

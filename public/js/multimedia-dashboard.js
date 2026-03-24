@@ -64,9 +64,7 @@
     navButtons: Array.from(document.querySelectorAll('.mm-nav-item[data-section]')),
     sections: Array.from(document.querySelectorAll('.mm-section')),
     sidebarRoleText: document.getElementById('sidebarRoleText'),
-    sidebarToggle: document.getElementById('sidebarToggle'),
     sidebar: document.getElementById('mmSidebar'),
-    refreshBtn: document.getElementById('refreshBtn'),
     logoutBtn: document.getElementById('logoutBtn'),
     headOnly: Array.from(document.querySelectorAll('.head-only')),
 
@@ -99,6 +97,7 @@
     announcementsEmpty: document.getElementById('announcementsEmpty'),
 
     logSearch: document.getElementById('logSearch'),
+    clearLogsBtn: document.getElementById('clearLogsBtn'),
     logsTableBody: document.querySelector('#logsTable tbody'),
     logsEmpty: document.getElementById('logsEmpty'),
 
@@ -293,18 +292,6 @@
         activateSection(button.dataset.section);
       });
     });
-
-    if (els.sidebarToggle) {
-      els.sidebarToggle.addEventListener('click', () => {
-        els.sidebar.classList.toggle('open');
-      });
-    }
-
-    if (els.refreshBtn) {
-      els.refreshBtn.addEventListener('click', async () => {
-        await loadEverything();
-      });
-    }
 
     if (els.logoutBtn) {
       els.logoutBtn.addEventListener('click', async () => {
@@ -1069,6 +1056,24 @@
   const mountSearchEvents = () => {
     const reloadLogs = debounce(loadLogs, 320);
     els.logSearch?.addEventListener('input', reloadLogs);
+
+    if (state.isHead && els.clearLogsBtn) {
+      els.clearLogsBtn.addEventListener('click', async () => {
+        const confirmed = window.confirm('Clear all activity logs? This cannot be undone.');
+        if (!confirmed) return;
+
+        try {
+          const data = await apiFetch('/logs', { method: 'DELETE' });
+          state.logs = [];
+          renderLogs();
+          await loadLogs();
+          const deletedCount = Number(data?.deleted_count || 0);
+          showNotice('success', `Activity logs cleared (${deletedCount} removed).`);
+        } catch (error) {
+          showNotice('error', error.message || 'Failed to clear logs.');
+        }
+      });
+    }
   };
 
   const init = async () => {
