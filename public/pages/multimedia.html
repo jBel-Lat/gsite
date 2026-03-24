@@ -130,11 +130,12 @@
 
       <section class="mm-section" id="filesSection">
         <article class="mm-panel head-only">
-          <div class="mm-panel-header"><h3>Upload File</h3></div>
-          <form id="fileForm" class="mm-form-grid" enctype="multipart/form-data">
+          <div class="mm-panel-header"><h3>Add Google Drive Link</h3></div>
+          <form id="fileForm" class="mm-form-grid">
             <input type="hidden" id="fileId" name="id">
             <label>Title<input type="text" name="title" required></label>
             <label>Description<textarea name="description" rows="2" required></textarea></label>
+            <label>Google Drive Link<input type="url" name="drive_url" id="fileDriveUrl" placeholder="https://drive.google.com/..." required></label>
             <label>Assigned Team
               <select name="assigned_team" required>
                 <option value="photographer">Photographer</option>
@@ -144,9 +145,9 @@
                 <option value="all_teams">All Teams</option>
               </select>
             </label>
-            <label>Upload File<input type="file" name="file"></label>
+            <label>Display Name (optional)<input type="text" name="file_name" placeholder="Optional display name"></label>
             <div class="mm-form-actions">
-              <button type="submit" class="mm-btn primary" id="fileSubmitBtn">Upload File</button>
+              <button type="submit" class="mm-btn primary" id="fileSubmitBtn">Save Link</button>
               <button type="button" class="mm-btn ghost" id="fileCancelBtn">Cancel Edit</button>
             </div>
           </form>
@@ -173,14 +174,14 @@
               </select>
             </div>
           </div>
-          <p class="muted" style="margin: 0 0 10px 0;">Download is disabled. Files can be viewed (supported types only) and edited by Multimedia Head.</p>
+          <p class="muted" style="margin: 0 0 10px 0;">Google Drive links only. Download from this system is disabled; click View to open the Drive link.</p>
           <div class="mm-table-wrap">
             <table class="mm-table" id="filesTable">
               <thead>
                 <tr>
                   <th>Title</th>
                   <th>Description</th>
-                  <th>File Name</th>
+                  <th>Resource</th>
                   <th>Uploaded By</th>
                   <th>Assigned Team</th>
                   <th>Status</th>
@@ -316,6 +317,6 @@
     </main>
   </div>
 
-  <script src="/js/multimedia-dashboard.js?v=20260325b"></script>
+  <script src="/js/multimedia-dashboard.js?v=20260325c"></script>
 </body>
 </html>

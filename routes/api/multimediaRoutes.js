@@ -4,7 +4,6 @@ const { requireAuth } = require('../../middleware/authMiddleware');
 const { requireAnyRole, requireRole } = require('../../middleware/roleMiddleware');
 const {
   memberPhotoUpload,
-  multimediaFileUpload,
   announcementImageUpload,
 } = require('../../middleware/multimediaUpload');
 const multimediaHeadController = require('../../controllers/api/multimediaHeadController');
@@ -69,18 +68,8 @@ router.get('/files', asyncHandler(multimediaHeadController.listFiles));
 router.get('/files/:id', asyncHandler(multimediaHeadController.getFile));
 router.get('/files/:id/download', asyncHandler(multimediaHeadController.downloadFile));
 router.get('/files/:id/view', asyncHandler(multimediaHeadController.viewFile));
-router.post(
-  '/files',
-  requireRole('multimedia_head'),
-  withUpload(multimediaFileUpload.single('file')),
-  asyncHandler(multimediaHeadController.createFile)
-);
-router.put(
-  '/files/:id',
-  requireRole('multimedia_head'),
-  withUpload(multimediaFileUpload.single('file')),
-  asyncHandler(multimediaHeadController.updateFile)
-);
+router.post('/files', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.createFile));
+router.put('/files/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.updateFile));
 router.put('/files/:id/status', asyncHandler(multimediaHeadController.changeFileStatus));
 router.delete('/files/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.deleteFile));
 

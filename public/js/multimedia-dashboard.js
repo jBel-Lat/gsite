@@ -368,6 +368,10 @@
       .map((file) => {
         const statusClass = `status-${file.status}`;
         const fileAvailable = file.file_available !== false;
+        const isDriveLink = file.source_type === 'gdrive_link' || Boolean(file.external_url);
+        const resourceCell = isDriveLink
+          ? `<a href="${escapeHtml(file.external_url || '#')}" target="_blank" rel="noopener">Google Drive Link</a>`
+          : escapeHtml(file.file_name);
         const headActions = state.isHead
           ? `
             <button class="mini-btn" data-action="file-edit" data-id="${file.id}">Edit</button>
@@ -379,7 +383,7 @@
           <tr>
             <td>${escapeHtml(file.title)}</td>
             <td>${escapeHtml(file.description || '-')}</td>
-            <td>${escapeHtml(file.file_name)}</td>
+            <td>${resourceCell}</td>
             <td>${escapeHtml(file.uploaded_by_name || '-')}</td>
             <td>${escapeHtml(roleLabel(file.assigned_team))}</td>
             <td>
@@ -430,7 +434,7 @@
     if (!els.fileForm) return;
     els.fileForm.reset();
     if (els.fileId) els.fileId.value = '';
-    if (els.fileSubmitBtn) els.fileSubmitBtn.textContent = 'Upload File';
+    if (els.fileSubmitBtn) els.fileSubmitBtn.textContent = 'Save Link';
   };
 
   const mountMemberEvents = () => {
@@ -530,19 +534,21 @@
       els.fileForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(els.fileForm);
+        const payload = Object.fromEntries(formData.entries());
         const fileId = els.fileId?.value;
 
-        if (fileId && !(formData.get('file') && formData.get('file').size > 0)) {
-          formData.delete('file');
+        if (!String(payload.drive_url || '').trim()) {
+          showNotice('error', 'Google Drive link is required.');
+          return;
         }
 
         try {
           if (fileId) {
-            await apiFetch(`/files/${fileId}`, { method: 'PUT', body: formData });
-            showNotice('success', 'File updated successfully.');
+            await apiFetch(`/files/${fileId}`, { method: 'PUT', body: payload });
+            showNotice('success', 'Google Drive link updated successfully.');
           } else {
-            await apiFetch('/files', { method: 'POST', body: formData });
-            showNotice('success', 'File uploaded successfully.');
+            await apiFetch('/files', { method: 'POST', body: payload });
+            showNotice('success', 'Google Drive link saved successfully.');
           }
           resetFileForm();
           await loadFiles();
@@ -564,10 +570,15 @@
       if (!file) return;
 
       if (action === 'file-view') {
+        if (file.external_url) {
+          window.open(file.external_url, '_blank', 'noopener');
+          return;
+        }
+
         if (file.file_available === false) {
           showNotice('error', state.isHead
-            ? 'This file is missing on server storage. Please edit this row and upload the file again.'
-            : 'This file is missing on server storage. Please ask Multimedia Head to re-upload it.');
+            ? 'This file is missing on server storage. Please edit this row and replace it with a Google Drive link.'
+            : 'This file is missing on server storage. Please ask Multimedia Head to update the Google Drive link.');
           return;
         }
 
@@ -600,8 +611,10 @@
         els.fileId.value = String(file.id);
         els.fileForm.title.value = file.title || '';
         els.fileForm.description.value = file.description || '';
+        els.fileForm.drive_url.value = file.external_url || '';
+        els.fileForm.file_name.value = file.file_name || '';
         els.fileForm.assigned_team.value = file.assigned_team || 'all_teams';
-        els.fileSubmitBtn.textContent = 'Update File';
+        els.fileSubmitBtn.textContent = 'Update Link';
         activateSection('filesSection');
         return;
       }

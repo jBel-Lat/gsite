@@ -13,6 +13,7 @@ const MEMBER_ROLES = ['photographer', 'videographer', 'graphic_designer', 'docum
 const ASSIGNED_TEAMS = [...MEMBER_ROLES, 'all_teams'];
 const FILE_STATUS = ['pending', 'processing', 'done'];
 const ANNOUNCEMENT_AUDIENCE = ['students', 'multimedia_team', 'all'];
+const GOOGLE_DRIVE_HOSTS = ['drive.google.com', 'docs.google.com'];
 
 const toInt = (value) => {
   const parsed = Number(value);
@@ -24,6 +25,27 @@ const normalizeSortDir = (value) => (String(value || '').toUpperCase() === 'ASC'
 const normalizeEnum = (value, allowed, fallback = null) => {
   const normalized = String(value || '').trim().toLowerCase();
   return allowed.includes(normalized) ? normalized : fallback;
+};
+
+const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || '').trim());
+
+const normalizeGoogleDriveUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_error) {
+    return '';
+  }
+
+  const host = String(parsed.hostname || '').toLowerCase();
+  if (!GOOGLE_DRIVE_HOSTS.includes(host)) {
+    return '';
+  }
+
+  return parsed.toString();
 };
 
 const removeLocalFile = (storedPath) => {
@@ -85,11 +107,13 @@ const formatMember = (row) => ({
 });
 
 const formatFile = (row) => ({
+  source_type: isHttpUrl(row.file_path) ? 'gdrive_link' : 'uploaded_file',
   id: row.id,
   title: row.title,
   description: row.description,
   file_name: row.file_name,
   file_path: row.file_path,
+  external_url: isHttpUrl(row.file_path) ? row.file_path : null,
   mime_type: row.mime_type,
   file_size: row.file_size,
   assigned_team: row.assigned_team,
@@ -621,9 +645,10 @@ const listFiles = async (req, res) => {
 
   const files = rows.map((row) => {
     const formatted = formatFile(row);
+    const isExternal = formatted.source_type === 'gdrive_link';
     return {
       ...formatted,
-      file_available: Boolean(resolveStoredUploadAbsolutePath(formatted.file_path)),
+      file_available: isExternal ? true : Boolean(resolveStoredUploadAbsolutePath(formatted.file_path)),
     };
   });
 
@@ -652,24 +677,18 @@ const createFile = async (req, res) => {
   const title = cleanText(req.body.title, 255);
   const description = cleanText(req.body.description, 2000);
   const assignedTeam = normalizeEnum(req.body.assigned_team, ASSIGNED_TEAMS, '');
+  const driveUrl = normalizeGoogleDriveUrl(req.body.drive_url);
 
-  if (!title || !assignedTeam) {
-    return res.status(400).json({ ok: false, error: 'title and assigned_team are required' });
+  if (!title || !assignedTeam || !driveUrl) {
+    return res.status(400).json({ ok: false, error: 'title, assigned_team, and a valid Google Drive link are required' });
   }
 
-  if (!req.file) {
-    return res.status(400).json({ ok: false, error: 'File upload is required' });
+  if (req.file) {
+    return res.status(400).json({ ok: false, error: 'Direct file upload is disabled. Use Google Drive link instead.' });
   }
 
-  const relativePath = toStoredUploadPath(req.file.path);
-  const uploadedAbsolutePath = resolveStoredUploadAbsolutePath(relativePath);
-  if (!uploadedAbsolutePath) {
-    return res.status(500).json({
-      ok: false,
-      error: 'Uploaded file could not be saved on server storage',
-    });
-  }
   const actor = getActor(req);
+  const displayName = cleanText(req.body.file_name || title, 255) || title;
 
   const [insertResult] = await pool.query(
     `
@@ -680,10 +699,10 @@ const createFile = async (req, res) => {
     [
       title,
       description || null,
-      relativePath,
-      req.file.originalname,
-      req.file.mimetype || null,
-      req.file.size || 0,
+      driveUrl,
+      displayName,
+      'link/gdrive',
+      0,
       assignedTeam,
       actor.id,
     ]
@@ -691,18 +710,18 @@ const createFile = async (req, res) => {
 
   const fileId = getInsertId(insertResult);
 
-  await writeActivityLog(req, 'Uploaded multimedia file', `${title} (${assignedTeam})`);
+  await writeActivityLog(req, 'Added Google Drive file link', `${title} (${assignedTeam})`);
   await createNotification(
     'file_uploaded',
-    'New multimedia file uploaded',
-    `${title} assigned to ${assignedTeam}`,
+    'New Google Drive link added',
+    `${title} linked for ${assignedTeam}`,
     fileId,
     actor.id
   );
 
   return res.status(201).json({
     ok: true,
-    message: 'File uploaded successfully',
+    message: 'Google Drive link saved successfully',
     file_id: fileId,
   });
 };
@@ -722,6 +741,8 @@ const updateFile = async (req, res) => {
   const description = cleanText(req.body.description || existing.description, 2000);
   const assignedTeam = normalizeEnum(req.body.assigned_team || existing.assigned_team, ASSIGNED_TEAMS, existing.assigned_team);
   const status = normalizeEnum(req.body.status || existing.status, FILE_STATUS, existing.status);
+  const hasDriveUrlField = Object.prototype.hasOwnProperty.call(req.body || {}, 'drive_url');
+  const driveUrl = hasDriveUrlField ? normalizeGoogleDriveUrl(req.body.drive_url) : '';
 
   let filePath = existing.file_path;
   let fileName = existing.file_name;
@@ -729,17 +750,17 @@ const updateFile = async (req, res) => {
   let fileSize = existing.file_size;
 
   if (req.file) {
-    filePath = toStoredUploadPath(req.file.path);
-    const uploadedAbsolutePath = resolveStoredUploadAbsolutePath(filePath);
-    if (!uploadedAbsolutePath) {
-      return res.status(500).json({
-        ok: false,
-        error: 'Uploaded file could not be saved on server storage',
-      });
+    return res.status(400).json({ ok: false, error: 'Direct file upload is disabled. Use Google Drive link instead.' });
+  }
+
+  if (hasDriveUrlField) {
+    if (!driveUrl) {
+      return res.status(400).json({ ok: false, error: 'Please provide a valid Google Drive link.' });
     }
-    fileName = req.file.originalname;
-    mimeType = req.file.mimetype || null;
-    fileSize = req.file.size || 0;
+    filePath = driveUrl;
+    fileName = cleanText(req.body.file_name || title, 255) || title;
+    mimeType = 'link/gdrive';
+    fileSize = 0;
   }
 
   await pool.query(
@@ -752,7 +773,7 @@ const updateFile = async (req, res) => {
     [title, description || null, filePath, fileName, mimeType, fileSize, assignedTeam, status, fileId]
   );
 
-  if (req.file && existing.file_path && existing.file_path !== filePath) {
+  if (hasDriveUrlField && existing.file_path && existing.file_path !== filePath && !isHttpUrl(existing.file_path)) {
     removeLocalFile(existing.file_path);
   }
 
@@ -774,7 +795,7 @@ const deleteFile = async (req, res) => {
 
   await pool.query('DELETE FROM multimedia_files WHERE id = ?', [fileId]);
 
-  if (file.file_path) {
+  if (file.file_path && !isHttpUrl(file.file_path)) {
     removeLocalFile(file.file_path);
   }
 
@@ -835,6 +856,10 @@ const viewFile = async (req, res) => {
 
   if (!ensureFileRoleAccess(req, file)) {
     return res.status(403).json({ ok: false, error: 'You do not have access to this file' });
+  }
+
+  if (isHttpUrl(file.file_path)) {
+    return res.redirect(file.file_path);
   }
 
   const absolutePath = resolveStoredUploadAbsolutePath(file.file_path);
