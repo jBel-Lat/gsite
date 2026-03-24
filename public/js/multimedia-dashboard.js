@@ -418,11 +418,11 @@
             <td>${escapeHtml(formatDate(file.created_at))}</td>
             <td>
               <div class="mini-actions">
-                <button class="mini-btn" data-action="file-view" data-id="${file.id}" ${fileAvailable ? '' : 'disabled'}>View</button>
-                <button class="mini-btn" data-action="file-download" data-id="${file.id}" ${fileAvailable ? '' : 'disabled'}>Download</button>
+                <button class="mini-btn" data-action="file-view" data-id="${file.id}">View</button>
+                <button class="mini-btn" data-action="file-download" data-id="${file.id}">Download</button>
                 ${headActions}
               </div>
-              ${fileAvailable ? '' : '<small class="muted">File missing on server storage</small>'}
+              ${fileAvailable ? '' : '<small class="muted">File missing on server storage. Re-upload required.</small>'}
             </td>
           </tr>
         `;
@@ -587,6 +587,13 @@
       if (!file) return;
 
       if (action === 'file-view') {
+        if (file.file_available === false) {
+          showNotice('error', state.isHead
+            ? 'This file is missing on server storage. Please edit this row and upload the file again.'
+            : 'This file is missing on server storage. Please ask Multimedia Head to re-upload it.');
+          return;
+        }
+
         const viewerTab = window.open('about:blank', '_blank');
         try {
           const { blob, mimeType } = await fetchProtectedFileBlob(file.view_url, file.file_name || 'preview');
@@ -613,6 +620,13 @@
       }
 
       if (action === 'file-download') {
+        if (file.file_available === false) {
+          showNotice('error', state.isHead
+            ? 'This file is missing on server storage. Please edit this row and upload the file again.'
+            : 'This file is missing on server storage. Please ask Multimedia Head to re-upload it.');
+          return;
+        }
+
         try {
           const { blob, fileName } = await fetchProtectedFileBlob(
             file.download_url,
