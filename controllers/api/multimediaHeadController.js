@@ -311,32 +311,56 @@ const streamEvents = (req, res) => {
   });
 };
 
-const getDashboardSummary = async (_req, res) => {
+const getDashboardSummary = async (req, res) => {
+  const role = String(req.user?.role || req.session?.user?.role || '').toLowerCase();
+  const isHeadRole = [MULTIMEDIA_HEAD_ROLE, 'superadmin', 'admin'].includes(role);
+  const hasFullFileAccess = isHeadRole || role === 'multimedia_member';
+  const fileScopeSql = hasFullFileAccess ? '1 = 1' : 'assigned_team IN (?, ?)';
+  const fileScopeParams = hasFullFileAccess ? [] : [role, 'all_teams'];
+
+  const buildFileCountQuery = (status) => {
+    const params = [...fileScopeParams];
+    let sql = `SELECT COUNT(*) AS total FROM multimedia_files WHERE ${fileScopeSql}`;
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+    return pool.query(sql, params);
+  };
+
+  const membersPromise = isHeadRole
+    ? pool.query('SELECT COUNT(*) AS total FROM multimedia_members')
+    : Promise.resolve([[{ total: 0 }]]);
+
+  const announcementsPromise = isHeadRole
+    ? pool.query('SELECT COUNT(*) AS total FROM announcements')
+    : pool.query(
+        `
+          SELECT COUNT(*) AS total
+          FROM announcements
+          WHERE target_audience IN (?, ?)
+        `,
+        ['multimedia_team', 'all']
+      );
+
   const [[members], [files], [pending], [processing], [done], [announcements]] = await Promise.all([
-    pool.query('SELECT COUNT(*) AS total FROM multimedia_members'),
-    pool.query('SELECT COUNT(*) AS total FROM multimedia_files'),
-    pool.query("SELECT COUNT(*) AS total FROM multimedia_files WHERE status = 'pending'"),
-    pool.query("SELECT COUNT(*) AS total FROM multimedia_files WHERE status = 'processing'"),
-    pool.query("SELECT COUNT(*) AS total FROM multimedia_files WHERE status = 'done'"),
-    pool.query(
-      `
-        SELECT COUNT(*) AS total
-        FROM announcements a
-        JOIN users u ON u.id = a.posted_by
-        WHERE u.role = 'multimedia_head'
-      `
-    ),
+    membersPromise,
+    buildFileCountQuery(null),
+    buildFileCountQuery('pending'),
+    buildFileCountQuery('processing'),
+    buildFileCountQuery('done'),
+    announcementsPromise,
   ]);
 
   return res.json({
     ok: true,
     summary: {
-      total_multimedia_team_members: members[0].total,
-      total_uploaded_files: files[0].total,
-      pending_files: pending[0].total,
-      processing_files: processing[0].total,
-      done_files: done[0].total,
-      total_announcements: announcements[0].total,
+      total_multimedia_team_members: Number(members?.[0]?.total || 0),
+      total_uploaded_files: Number(files?.[0]?.total || 0),
+      pending_files: Number(pending?.[0]?.total || 0),
+      processing_files: Number(processing?.[0]?.total || 0),
+      done_files: Number(done?.[0]?.total || 0),
+      total_announcements: Number(announcements?.[0]?.total || 0),
     },
   });
 };

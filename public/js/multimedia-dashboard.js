@@ -174,9 +174,7 @@
   const refreshFromRealtime = debounce(async () => {
     try {
       await loadFiles();
-      if (state.isHead) {
-        await renderSummary();
-      }
+      await renderSummary();
     } catch (error) {
       console.error('[multimedia-dashboard] realtime refresh failed', error);
     }
@@ -689,7 +687,7 @@
             showNotice('success', 'Google Drive link saved successfully.');
           }
           resetFileForm();
-          await loadFiles();
+          await Promise.all([loadFiles(), renderSummary()]);
         } catch (error) {
           showNotice('error', error.message);
         }
@@ -763,7 +761,7 @@
         try {
           await apiFetch(`/files/${file.id}`, { method: 'DELETE' });
           showNotice('success', 'File deleted.');
-          await loadFiles();
+          await Promise.all([loadFiles(), renderSummary()]);
         } catch (error) {
           showNotice('error', error.message);
         }
@@ -776,7 +774,7 @@
         try {
           await apiFetch(`/files/${file.id}/status`, { method: 'PUT', body: { status: nextStatus } });
           showNotice('success', 'File status updated.');
-          await loadFiles();
+          await Promise.all([loadFiles(), renderSummary()]);
         } catch (error) {
           showNotice('error', error.message);
         }
@@ -863,7 +861,7 @@
           }
 
           resetAnnouncementForm();
-          await loadAnnouncements();
+          await Promise.all([loadAnnouncements(), renderSummary()]);
         } catch (error) {
           showNotice('error', error.message);
         }
@@ -902,7 +900,7 @@
         try {
           await apiFetch(`/announcements/${announcement.id}`, { method: 'DELETE' });
           showNotice('success', 'Announcement deleted.');
-          await loadAnnouncements();
+          await Promise.all([loadAnnouncements(), renderSummary()]);
         } catch (error) {
           showNotice('error', error.message);
         }
@@ -947,24 +945,14 @@
   };
 
   const renderSummary = async () => {
-    if (!state.isHead) {
-      if (els.sumMembers) els.sumMembers.textContent = '-';
-      if (els.sumFiles) els.sumFiles.textContent = '-';
-      if (els.sumPending) els.sumPending.textContent = '-';
-      if (els.sumProcessing) els.sumProcessing.textContent = '-';
-      if (els.sumDone) els.sumDone.textContent = '-';
-      if (els.sumAnnouncements) els.sumAnnouncements.textContent = '-';
-      return;
-    }
-
     const data = await apiFetch('/dashboard/summary');
     const summary = data.summary || {};
-    els.sumMembers.textContent = String(summary.total_multimedia_team_members || 0);
-    els.sumFiles.textContent = String(summary.total_uploaded_files || 0);
-    els.sumPending.textContent = String(summary.pending_files || 0);
-    els.sumProcessing.textContent = String(summary.processing_files || 0);
-    els.sumDone.textContent = String(summary.done_files || 0);
-    els.sumAnnouncements.textContent = String(summary.total_announcements || 0);
+    if (els.sumMembers) els.sumMembers.textContent = String(summary.total_multimedia_team_members || 0);
+    if (els.sumFiles) els.sumFiles.textContent = String(summary.total_uploaded_files || 0);
+    if (els.sumPending) els.sumPending.textContent = String(summary.pending_files || 0);
+    if (els.sumProcessing) els.sumProcessing.textContent = String(summary.processing_files || 0);
+    if (els.sumDone) els.sumDone.textContent = String(summary.done_files || 0);
+    if (els.sumAnnouncements) els.sumAnnouncements.textContent = String(summary.total_announcements || 0);
   };
 
   const renderNotifications = (items) => {

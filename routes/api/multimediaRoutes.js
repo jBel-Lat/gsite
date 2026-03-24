@@ -24,6 +24,8 @@ const withUpload = (uploadMiddleware) => (req, res, next) => {
 router.use(requireAuth);
 router.use(
   requireAnyRole([
+    'superadmin',
+    'admin',
     'multimedia_head',
     'photographer',
     'videographer',
@@ -45,7 +47,7 @@ router.use((req, _res, next) => {
   next();
 });
 
-router.get('/dashboard/summary', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getDashboardSummary));
+router.get('/dashboard/summary', asyncHandler(multimediaHeadController.getDashboardSummary));
 router.get('/stream', multimediaHeadController.streamEvents);
 
 router.get('/members', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listMembers));
