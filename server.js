@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
-const pool = require('./config/db');
+const { testConnection, getDbConfig, getAuthSchema } = require('./config/database');
+const authRoutes = require('./routes/authRoutes');
 const apiRoutes = require('./routes/api');
 const webRoutes = require('./routes/webRoutes');
 const { attachUser } = require('./middleware/auth');
@@ -64,6 +65,7 @@ if (fs.existsSync(uploadsDir)) {
   app.use('/uploads', express.static(uploadsDir, { maxAge: isProduction ? '1d' : 0 }));
 }
 
+app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use(webRoutes);
 
@@ -110,22 +112,32 @@ app.use((error, req, res, next) => {
 });
 
 app.listen(PORT, () => {
+  const dbConfig = getDbConfig();
+  const authSchema = getAuthSchema();
+
   console.log(`Server listening on port ${PORT}`);
   console.log('API base: /api');
   console.log(`Public directory: ${publicDir}`);
-  console.log('Auth routes: POST /api/auth/login, POST /api/auth/register, GET /api/auth/me, POST /api/auth/logout');
+  console.log('Auth routes: GET /api/auth/health, POST /api/auth/login, POST /api/auth/register, GET /api/auth/me, POST /api/auth/logout');
   console.log('DB env summary:', {
-    host: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.MYSQLPORT || process.env.DB_PORT || 3306),
-    database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'cc_gsite_db',
-    user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
+    host: dbConfig.host,
+    port: Number(dbConfig.port),
+    database: dbConfig.database,
+    user: dbConfig.user,
+  });
+  console.log('Auth schema summary:', {
+    table: authSchema.table,
+    username: authSchema.username,
+    email: authSchema.email,
+    password: authSchema.password,
+    role: authSchema.role,
   });
 });
 
-pool
-  .query('SELECT 1 AS ok')
-  .then(() => {
+testConnection()
+  .then((result) => {
     console.log('Database connection test: OK');
+    console.log('Database probe:', result);
   })
   .catch((error) => {
     console.error('Database connection test FAILED:', {

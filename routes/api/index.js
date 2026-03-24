@@ -1,7 +1,6 @@
 const express = require('express');
 const pool = require('../../config/db');
 const { asyncHandler } = require('../../utils/http');
-const authRoutes = require('./authRoutes');
 const studentRoutes = require('./studentRoutes');
 const adminRoutes = require('./adminRoutes');
 const developerRoutes = require('./developerRoutes');
@@ -22,7 +21,6 @@ router.get(
   })
 );
 
-router.use('/auth', authRoutes);
 router.use('/student', studentRoutes);
 router.use('/admin', adminRoutes);
 router.use('/developer', developerRoutes);
@@ -30,4 +28,3 @@ router.use('/multimedia', multimediaRoutes);
 router.use('/profile', profileRoutes);
 
 module.exports = router;
-
