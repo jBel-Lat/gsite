@@ -254,59 +254,32 @@
       renderEvents();
     }
 
-    function fallbackData() {
-      state.multimediaPosts = [
-        {
-          id: 101,
-          title: 'Campus Photo Coverage Schedule',
-          details: 'This is sample data while API migration is ongoing.\nConnect /api/student/dashboard-data to load real records.',
-          created_at: new Date().toISOString(),
-          author_name: 'Multimedia Team',
-          author_image: 'default.png',
-          image: null
-        }
-      ];
-
-      state.developerPosts = [
-        {
-          id: 201,
-          title: 'Website Maintenance Notice',
-          details: 'Frontend is now static HTML served by Express.\nNext step is moving PHP actions to /api routes.',
-          created_at: new Date().toISOString(),
-          author_name: 'Developer Team',
-          author_image: 'default.png',
-          image: null
-        }
-      ];
-
-      state.comments = {
-        101: [{ author_name: 'Guest', comment: 'Looks good!' }],
-        201: [{ author_name: 'Visitor', comment: 'Waiting for real API data.' }]
-      };
-
-      state.events = [
-        {
-          id: 1,
-          title: 'GSITE Orientation',
-          start_date: new Date().toISOString(),
-          end_date: new Date(Date.now() + 86400000).toISOString()
-        }
-      ];
-    }
-
     async function loadDashboardData() {
       try {
         const response = await fetch('/api/student/dashboard-data', { headers: { Accept: 'application/json' } });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          let reason = `HTTP ${response.status}`;
+          try {
+            const payload = await response.json();
+            if (payload && payload.error) reason = payload.error;
+          } catch (_ignore) {
+            // Keep default reason when response is not JSON.
+          }
+          throw new Error(reason);
+        }
         const data = await response.json();
 
         state.multimediaPosts = Array.isArray(data.multimedia_posts) ? data.multimedia_posts : [];
         state.developerPosts = Array.isArray(data.developer_posts) ? data.developer_posts : [];
         state.comments = data.comments && typeof data.comments === 'object' ? data.comments : {};
         state.events = Array.isArray(data.events) ? data.events : [];
+        showMessage('', '');
       } catch (_err) {
-        fallbackData();
-        showMessage('error', 'Live student API is not ready yet. Showing fallback content.');
+        state.multimediaPosts = [];
+        state.developerPosts = [];
+        state.comments = {};
+        state.events = [];
+        showMessage('error', `Student API error: ${_err.message}`);
       }
 
       renderAll();
