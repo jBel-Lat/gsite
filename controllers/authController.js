@@ -356,8 +356,10 @@ const login = async (req, res) => {
 
     return res.json({
       ok: true,
+      success: true,
       user: sessionUser,
-      ...(token ? { token } : {}),
+      role: sessionUser.role || null,
+      token: token || null,
       auth: authStrategy,
     });
   } catch (error) {
@@ -472,7 +474,11 @@ const register = async (req, res) => {
 };
 
 const me = async (req, res) => {
-  if (!req.session?.user) {
+  const sessionUser = req.session?.user || null;
+  const requestUser = req.user || null;
+  const userId = sessionUser?.id || requestUser?.id || null;
+
+  if (!userId) {
     return res.status(200).json({ ok: true, user: null });
   }
 
@@ -489,16 +495,21 @@ const me = async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT * FROM ${quoteIdent(schema.table)} WHERE ${quoteIdent(map.id)} = ? LIMIT 1`,
-      [req.session.user.id]
+      [userId]
     );
 
     if (!rows.length) {
-      req.session.destroy(() => {});
+      if (req.session) {
+        req.session.destroy(() => {});
+      }
       return res.status(200).json({ ok: true, user: null });
     }
 
-    req.session.user = buildSessionUser(rows[0], map);
-    return res.json({ ok: true, user: req.session.user });
+    const hydratedUser = buildSessionUser(rows[0], map);
+    if (req.session) {
+      req.session.user = hydratedUser;
+    }
+    return res.json({ ok: true, user: hydratedUser });
   } catch (error) {
     if (isDbError(error)) {
       return sendDbError(res, error, 'me');

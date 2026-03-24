@@ -10,33 +10,45 @@ const sendPage = (pageFile) => {
   };
 };
 
+const pageRoute = (routePath, pageFile) => {
+  router.get(routePath, sendPage(pageFile));
+  router.get(`${routePath}.html`, sendPage(pageFile));
+};
+
 router.get(['/', '/student', '/student/dashboard'], (_req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
 });
+router.get('/student/dashboard.html', (_req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+});
 
-router.get('/admin/login', sendPage('admin-login.html'));
-router.get('/superadmin/login', sendPage('superadmin-login.html'));
+pageRoute('/admin/login', 'admin-login.html');
+pageRoute('/superadmin/login', 'superadmin-login.html');
 
-router.get('/superadmin/dashboard', sendPage('superadmin-dashboard.html'));
-router.get('/superadmin/users', sendPage('superadmin-users.html'));
-router.get('/superadmin/teams', sendPage('superadmin-teams.html'));
+pageRoute('/superadmin/dashboard', 'superadmin-dashboard.html');
+pageRoute('/superadmin/users', 'superadmin-users.html');
+pageRoute('/superadmin/teams', 'superadmin-teams.html');
 
-router.get('/developer/dashboard', sendPage('developer-dashboard.html'));
-router.get('/developer/announcements', sendPage('developer-announcements.html'));
-router.get('/developer/members', sendPage('developer-members.html'));
-router.get('/developer/gsite_posts', sendPage('developer-gsite-posts.html'));
-router.get('/developer/gsite_events', sendPage('developer-gsite-events.html'));
-router.get('/developer/event_registrations', sendPage('developer-event-registrations.html'));
-router.get('/developer/projects', sendPage('developer-projects.html'));
-router.get('/developer/editor', sendPage('developer-editor.html'));
+pageRoute('/developer/dashboard', 'developer-dashboard.html');
+pageRoute('/developer/announcements', 'developer-announcements.html');
+pageRoute('/developer/members', 'developer-members.html');
+pageRoute('/developer/gsite_posts', 'developer-gsite-posts.html');
+pageRoute('/developer/gsite_events', 'developer-gsite-events.html');
+pageRoute('/developer/event_registrations', 'developer-event-registrations.html');
+pageRoute('/developer/projects', 'developer-projects.html');
+pageRoute('/developer/editor', 'developer-editor.html');
 
-router.get('/multimedia/dashboard', sendPage('multimedia-dashboard.html'));
-router.get('/multimedia/announcements', sendPage('multimedia-announcements.html'));
-router.get('/multimedia/members', sendPage('multimedia-members.html'));
-router.get('/multimedia/gsite_posts', sendPage('multimedia-gsite-posts.html'));
-router.get('/multimedia/repositories', sendPage('multimedia-repositories.html'));
+pageRoute('/multimedia/dashboard', 'multimedia-dashboard.html');
+pageRoute('/multimedia/announcements', 'multimedia-announcements.html');
+pageRoute('/multimedia/members', 'multimedia-members.html');
+pageRoute('/multimedia/gsite_posts', 'multimedia-gsite-posts.html');
+pageRoute('/multimedia/repositories', 'multimedia-repositories.html');
 
-router.get('/profile', sendPage('profile.html'));
+pageRoute('/profile', 'profile.html');
+
+// Compatibility aliases for legacy/alternative role routes.
+router.get(['/admin/dashboard', '/admin/dashboard.html'], (_req, res) => res.redirect('/superadmin/dashboard'));
+router.get(['/panelist/dashboard', '/panelist/dashboard.html'], (_req, res) => res.redirect('/student/dashboard'));
 router.get('/logout', (_req, res) => res.redirect('/admin/login'));
 
 router.get('/officer/developer/:page?', (_req, res) => res.redirect('/developer/dashboard'));

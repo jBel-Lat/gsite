@@ -1,12 +1,53 @@
 (function () {
   const routeRoleMap = {
     '/superadmin': ['superadmin'],
+    '/admin': ['superadmin', 'admin'],
     '/developer': ['developer_head', 'developer_member'],
     '/multimedia': ['multimedia_head', 'multimedia_member'],
-    '/profile': ['superadmin', 'developer_head', 'developer_member', 'multimedia_head', 'multimedia_member'],
+    '/student': ['student'],
+    '/panelist': ['panelist'],
+    '/profile': [
+      'superadmin',
+      'admin',
+      'developer_head',
+      'developer_member',
+      'multimedia_head',
+      'multimedia_member',
+      'student',
+      'panelist',
+    ],
   };
 
+  const roleRedirectMap = {
+    superadmin: '/superadmin/dashboard',
+    admin: '/admin/dashboard.html',
+    developer_head: '/developer/dashboard',
+    developer_member: '/developer/dashboard',
+    multimedia_head: '/multimedia/dashboard',
+    multimedia_member: '/multimedia/dashboard',
+    student: '/student/dashboard.html',
+    panelist: '/panelist/dashboard.html',
+  };
+
+  function getStoredToken() {
+    return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+  }
+
+  function clearStoredAuth() {
+    localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_user');
+  }
+
+  function dashboardPathForRole(role) {
+    return roleRedirectMap[String(role || '').toLowerCase()] || null;
+  }
+
   const linksByRole = {
+    admin: [
+      { href: '/admin/dashboard.html', label: 'Dashboard', icon: 'fa-tachometer-alt' },
+      { href: '/profile', label: 'Profile', icon: 'fa-user-circle' },
+    ],
     superadmin: [
       { href: '/superadmin/dashboard', label: 'Dashboard', icon: 'fa-tachometer-alt' },
       { href: '/superadmin/users', label: 'Users', icon: 'fa-users-cog' },
@@ -44,6 +85,8 @@
       { href: '/multimedia/repositories', label: 'Repositories', icon: 'fa-folder-open' },
       { href: '/profile', label: 'Profile', icon: 'fa-user-circle' },
     ],
+    student: [{ href: '/student/dashboard.html', label: 'Dashboard', icon: 'fa-home' }],
+    panelist: [{ href: '/panelist/dashboard.html', label: 'Dashboard', icon: 'fa-clipboard-check' }],
   };
 
   function roleAllowedForPath(role, pathname) {
@@ -53,7 +96,15 @@
   }
 
   async function fetchJSON(url, options) {
-    const response = await fetch(url, options);
+    const token = getStoredToken();
+    const requestOptions = options ? { ...options } : {};
+    const headers = new Headers(requestOptions.headers || {});
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    requestOptions.headers = headers;
+
+    const response = await fetch(url, requestOptions);
     const maybeJson = await response
       .json()
       .catch(() => ({ ok: false, error: `Unexpected response from ${url}` }));
@@ -130,6 +181,7 @@
       try {
         await fetchJSON('/api/auth/logout', { method: 'POST' });
       } finally {
+        clearStoredAuth();
         window.location.href = '/admin/login';
       }
     });
@@ -148,12 +200,19 @@
     }
 
     if (!me.user) {
+      clearStoredAuth();
       window.location.href = '/admin/login';
       return;
     }
 
     if (!roleAllowedForPath(me.user.role, window.location.pathname)) {
-      window.location.href = '/';
+      const fallbackPath = dashboardPathForRole(me.user.role);
+      if (fallbackPath && fallbackPath !== window.location.pathname) {
+        window.location.href = fallbackPath;
+        return;
+      }
+      clearStoredAuth();
+      window.location.href = '/admin/login';
       return;
     }
 
@@ -177,4 +236,3 @@
 
   document.addEventListener('DOMContentLoaded', initShell);
 })();
-

@@ -24,28 +24,101 @@
   <script>
     const form = document.getElementById('loginForm');
     const errorText = document.getElementById('errorText');
+
+    const roleRedirectMap = {
+      superadmin: '/superadmin/dashboard',
+      admin: '/admin/dashboard.html',
+      developer_head: '/developer/dashboard',
+      developer_member: '/developer/dashboard',
+      multimedia_head: '/multimedia/dashboard',
+      multimedia_member: '/multimedia/dashboard',
+      student: '/student/dashboard.html',
+      panelist: '/panelist/dashboard.html',
+    };
+
+    const getToken = () => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+
+    const resolveDashboard = (role) => roleRedirectMap[String(role || '').toLowerCase()] || null;
+
+    const storeAuth = (data) => {
+      const user = data?.user || null;
+      const token = data?.token || null;
+      if (token) {
+        localStorage.setItem('auth_token', token);
+        sessionStorage.setItem('auth_token', token);
+      } else {
+        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_token');
+      }
+      if (user) {
+        sessionStorage.setItem('auth_user', JSON.stringify(user));
+      }
+    };
+
+    const showError = (message) => {
+      errorText.textContent = message;
+      errorText.style.display = 'block';
+    };
+
+    const autoRedirectIfLoggedIn = async () => {
+      try {
+        const headers = {};
+        const existingToken = getToken();
+        if (existingToken) {
+          headers.Authorization = `Bearer ${existingToken}`;
+        }
+        const response = await fetch('/api/auth/me', { headers });
+        const data = await response.json();
+        if (!response.ok || data?.ok === false || !data?.user) {
+          return;
+        }
+        const target = resolveDashboard(data.user.role);
+        if (target && window.location.pathname !== target) {
+          window.location.replace(target);
+        }
+      } catch (_error) {
+        // stay on login page
+      }
+    };
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       errorText.style.display = 'none';
+
       const payload = Object.fromEntries(new FormData(form).entries());
       payload.scope = 'superadmin';
+
       try {
         const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        const data = await response.json();
-        if (!response.ok || data.ok === false) {
-          throw new Error(data.error || 'Login failed');
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok === false || data.success === false) {
+          throw new Error(data.error || data.message || 'Login failed');
         }
-        window.location.href = '/superadmin/dashboard';
+
+        storeAuth(data);
+        const role = data.role || data?.user?.role || '';
+        const target = resolveDashboard(role);
+
+        if (!target) {
+          throw new Error(`Unknown role "${role || 'none'}". Please contact administrator.`);
+        }
+
+        if (window.location.pathname === target) {
+          return;
+        }
+
+        window.location.assign(target);
       } catch (error) {
-        errorText.textContent = error.message;
-        errorText.style.display = 'block';
+        showError(error.message || 'Login failed');
       }
     });
+
+    autoRedirectIfLoggedIn();
   </script>
 </body>
 </html>
-
