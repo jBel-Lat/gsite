@@ -215,6 +215,69 @@
     return payload;
   };
 
+  const parseFilenameFromDisposition = (contentDisposition) => {
+    if (!contentDisposition) return null;
+
+    const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utfMatch && utfMatch[1]) {
+      try {
+        return decodeURIComponent(utfMatch[1]).trim();
+      } catch (_error) {
+        return utfMatch[1].trim();
+      }
+    }
+
+    const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+    if (plainMatch && plainMatch[1]) {
+      return plainMatch[1].trim();
+    }
+
+    return null;
+  };
+
+  const fetchProtectedFileBlob = async (resourceUrl, fallbackName = 'download.bin') => {
+    const authToken = getStoredToken();
+    const headers = new Headers();
+    if (authToken) {
+      headers.set('Authorization', `Bearer ${authToken}`);
+    }
+
+    console.log('[multimedia-dashboard] file request', {
+      resourceUrl,
+      hasToken: Boolean(authToken),
+      role: state.role,
+    });
+
+    const response = await fetch(resourceUrl, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      let message = `Request failed (${response.status})`;
+      try {
+        const payload = await response.json();
+        message = payload?.error || payload?.message || message;
+      } catch (_jsonError) {
+        try {
+          const text = await response.text();
+          if (text) message = text;
+        } catch (_textError) {
+          // keep default message
+        }
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const fileName = parseFilenameFromDisposition(contentDisposition) || fallbackName;
+    const mimeType = response.headers.get('content-type') || blob.type || 'application/octet-stream';
+
+    return { blob, fileName, mimeType };
+  };
+
   const activateSection = (sectionId) => {
     els.sections.forEach((section) => {
       section.classList.toggle('active', section.id === sectionId);
@@ -522,12 +585,48 @@
       if (!file) return;
 
       if (action === 'file-view') {
-        window.open(file.view_url, '_blank', 'noopener');
+        const viewerTab = window.open('about:blank', '_blank');
+        try {
+          const { blob, mimeType } = await fetchProtectedFileBlob(file.view_url, file.file_name || 'preview');
+          const viewBlob =
+            blob.type && blob.type !== 'application/octet-stream'
+              ? blob
+              : new Blob([blob], { type: mimeType || 'application/octet-stream' });
+          const objectUrl = URL.createObjectURL(viewBlob);
+
+          if (viewerTab) {
+            viewerTab.location.href = objectUrl;
+          } else {
+            window.open(objectUrl, '_blank');
+          }
+
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+        } catch (error) {
+          if (viewerTab) {
+            viewerTab.close();
+          }
+          showNotice('error', error.message || 'Unable to view file.');
+        }
         return;
       }
 
       if (action === 'file-download') {
-        window.location.href = file.download_url;
+        try {
+          const { blob, fileName } = await fetchProtectedFileBlob(
+            file.download_url,
+            file.file_name || 'download.bin'
+          );
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+        } catch (error) {
+          showNotice('error', error.message || 'Unable to download file.');
+        }
         return;
       }
 

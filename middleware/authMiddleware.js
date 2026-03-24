@@ -23,11 +23,23 @@ const parseBearerToken = (authHeader) => {
   }
 
   const [scheme, token] = String(authHeader).split(' ');
-  if (scheme !== 'Bearer' || !token) {
+  if (String(scheme || '').toLowerCase() !== 'bearer' || !token) {
     return { token: null, error: 'Authentication required' };
   }
 
   return { token: token.trim(), error: null };
+};
+
+const sessionUserToRequestUser = (sessionUser) => {
+  const normalizedRole = normalizeRole(sessionUser?.role);
+  return {
+    id: sessionUser?.id || null,
+    username: sessionUser?.username || null,
+    role: normalizedRole,
+    rawRole: sessionUser?.role || null,
+    name: sessionUser?.name || sessionUser?.username || null,
+    email: sessionUser?.email || null,
+  };
 };
 
 const resolveJwtSecret = () => {
@@ -46,8 +58,18 @@ const resolveJwtSecret = () => {
 
 const requireAuth = (req, res, next) => {
   const authHeader = req.headers?.authorization || '';
+  const sessionUser = req.session?.user || null;
 
-  console.log('[authMiddleware] authorization header:', authHeader || null);
+  console.log('[authMiddleware] auth check:', {
+    hasAuthorizationHeader: Boolean(authHeader),
+    hasSessionUser: Boolean(sessionUser),
+  });
+
+  // Support session-authenticated requests (for direct browser open/download).
+  if (sessionUser) {
+    req.user = sessionUserToRequestUser(sessionUser);
+    return next();
+  }
 
   const parsed = parseBearerToken(authHeader);
   if (parsed.error) {
@@ -81,6 +103,15 @@ const requireAuth = (req, res, next) => {
       role: normalizedRole,
       rawRole: decoded?.role || null,
     };
+
+    // Keep session in sync when available so direct URL/file open works after token-auth calls.
+    if (req.session && !req.session.user) {
+      req.session.user = {
+        id: req.user.id,
+        username: req.user.username || '',
+        role: req.user.role || null,
+      };
+    }
 
     return next();
   } catch (error) {
