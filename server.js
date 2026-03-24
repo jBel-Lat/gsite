@@ -14,7 +14,6 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const sessionSecret = process.env.SESSION_SECRET || 'change-this-in-production';
 const publicDir = path.join(__dirname, 'public');
-const pagesDir = path.join(publicDir, 'pages');
 const assetsDir = path.join(__dirname, 'assets');
 const uploadsDir = path.join(__dirname, 'uploads');
 
@@ -45,77 +44,12 @@ app.use('/uploads', express.static(uploadsDir, { maxAge: isProduction ? '1d' : 0
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 
-const sendPage = (pageFile) => (_req, res) => res.sendFile(path.join(pagesDir, pageFile));
-
 app.get('/', (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 app.get(['/index', '/index.html'], (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
-// Canonical app pages
-app.get('/admin/login', sendPage('admin-login.html'));
-app.get('/superadmin/login', sendPage('superadmin-login.html'));
-app.get('/pages/admin.html', sendPage('admin.html'));
-app.get('/pages/student.html', sendPage('student.html'));
-app.get('/pages/developer.html', sendPage('developer.html'));
-app.get('/pages/multimedia.html', sendPage('multimedia.html'));
-app.get('/pages/officer.html', sendPage('officer.html'));
-app.get('/pages/profile.html', sendPage('profile.html'));
-app.get('/pages/superadmin.html', sendPage('superadmin.html'));
-
-// Legacy routes -> canonical static pages in /public/pages
-const legacyPageMap = {
-  '/views/admin/login.php': 'admin-login.html',
-  '/views/admin/dashboard.php': 'admin.html',
-  '/views/admin/users.php': 'admin.html',
-  '/views/admin/teams.php': 'admin.html',
-
-  '/views/superadmin/login.php': 'superadmin-login.html',
-  '/views/superadmin/dashboard.php': 'superadmin.html',
-
-  '/views/student/dashboard.php': 'student.html',
-  '/views/profile/index.php': 'profile.html',
-
-  '/views/developer/dashboard.php': 'developer.html',
-  '/views/developer/announcements.php': 'developer-announcements.html',
-  '/views/developer/editor.php': 'developer-editor.html',
-  '/views/developer/event_registrations.php': 'developer-event-registrations.html',
-  '/views/developer/gsite_events.php': 'developer-gsite-events.html',
-  '/views/developer/gsite_posts.php': 'developer-gsite-posts.html',
-  '/views/developer/members.php': 'developer-members.html',
-  '/views/developer/projects.php': 'developer-projects.html',
-
-  '/views/multimedia/dashboard.php': 'multimedia.html',
-  '/views/multimedia/announcements.php': 'multimedia-announcements.html',
-  '/views/multimedia/gsite_posts.php': 'multimedia-gsite-posts.html',
-  '/views/multimedia/members.php': 'multimedia-members.html',
-  '/views/multimedia/repositories.php': 'multimedia-repositories.html',
-
-  '/views/member/developer/dashboard.php': 'developer.html',
-  '/views/member/developer/announcements.php': 'developer-announcements.html',
-  '/views/member/developer/editor.php': 'developer-editor.html',
-  '/views/member/multimedia/dashboard.php': 'multimedia.html',
-  '/views/member/multimedia/repositories.php': 'multimedia-repositories.html',
-
-  '/views/officer/developer/dashboard.php': 'officer.html',
-  '/views/officer/developer/announcements.php': 'officer.html',
-  '/views/officer/developer/editor.php': 'officer.html',
-  '/views/officer/developer/members.php': 'officer.html',
-  '/views/officer/multimedia/dashboard.php': 'officer.html',
-  '/views/officer/multimedia/members.php': 'officer.html',
-  '/views/officer/multimedia/repositories.php': 'officer.html',
-};
-
-Object.entries(legacyPageMap).forEach(([legacyPath, pageFile]) => {
-  app.get(legacyPath, sendPage(pageFile));
-});
-
-// Friendly legacy non-PHP aliases.
-app.get('/admin/dashboard', sendPage('admin.html'));
-app.get('/student/dashboard', sendPage('student.html'));
-app.get('/developer/dashboard', sendPage('developer.html'));
-app.get('/multimedia/dashboard', sendPage('multimedia.html'));
-app.get('/officer/dashboard', sendPage('officer.html'));
-app.get('/profile', sendPage('profile.html'));
-app.get('/superadmin/dashboard', sendPage('superadmin.html'));
+// Login aliases (frontend is served from /public/pages).
+app.get('/admin/login', (_req, res) => res.redirect('/pages/admin-login.html'));
+app.get('/superadmin/login', (_req, res) => res.redirect('/pages/superadmin-login.html'));
 
 app.use('/api', (_req, res) => {
   res.status(404).json({ ok: false, error: 'API route not found' });
