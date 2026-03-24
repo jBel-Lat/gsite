@@ -279,7 +279,8 @@
         state.developerPosts = [];
         state.comments = {};
         state.events = [];
-        showMessage('error', `Student API error: ${_err.message}`);
+        // Keep the page clean and render empty-state cards when API is temporarily unavailable.
+        showMessage('', '');
       }
 
       renderAll();
@@ -332,7 +333,7 @@
         showMessage('success', 'Comment submitted.');
         await loadDashboardData();
       } catch (_err) {
-        showMessage('error', 'Comment API route is not available yet. Create POST /api/student/comments in Express.');
+        showMessage('error', 'Unable to submit comment right now. Please try again.');
       }
     });
 
@@ -353,7 +354,7 @@
         closeRegModal();
         showMessage('success', 'Event registration submitted.');
       } catch (_err) {
-        showMessage('error', 'Registration API route is not available yet. Create POST /api/student/register-event in Express.');
+        showMessage('error', 'Unable to submit registration right now. Please try again.');
       }
     });
 
