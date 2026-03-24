@@ -14,10 +14,15 @@
   <div class="mm-layout">
     <aside class="mm-sidebar" id="mmSidebar">
       <div class="mm-brand">
-        <div class="mm-brand-icon"><i class="fa-solid fa-photo-film"></i></div>
+        <img
+          id="sidebarProfileImage"
+          class="mm-brand-avatar"
+          src="/assets/images/default-avatar.png"
+          alt="Profile picture"
+        >
         <div>
-          <h1>Multimedia HQ</h1>
-          <p id="sidebarRoleText">Role</p>
+          <h1 id="sidebarProfileName">Multimedia User</h1>
+          <p id="sidebarRoleText">Position</p>
         </div>
       </div>
 
@@ -28,7 +33,7 @@
         <button class="mm-nav-item" data-section="announcementsSection"><i class="fa-solid fa-bullhorn"></i>Announcements</button>
         <button class="mm-nav-item head-only" data-section="logsSection"><i class="fa-solid fa-clock-rotate-left"></i>Activity Logs</button>
         <button class="mm-nav-item head-only" data-section="reportsSection"><i class="fa-solid fa-chart-simple"></i>Reports</button>
-        <button class="mm-nav-item head-only" data-section="profileSection"><i class="fa-solid fa-user-gear"></i>Profile</button>
+        <button class="mm-nav-item" data-section="profileSection"><i class="fa-solid fa-user-gear"></i>Profile</button>
         <button class="mm-nav-item" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i>Logout</button>
       </nav>
     </aside>
@@ -294,7 +299,7 @@
         </article>
       </section>
 
-      <section class="mm-section head-only" id="profileSection">
+      <section class="mm-section" id="profileSection">
         <article class="mm-panel">
           <div class="mm-panel-header"><h3>Profile Management</h3></div>
           <form id="profileForm" class="mm-form-grid" enctype="multipart/form-data">
@@ -316,6 +321,6 @@
     </main>
   </div>
 
-  <script src="/js/multimedia-dashboard.js?v=20260325g"></script>
+  <script src="/js/multimedia-dashboard.js?v=20260325i"></script>
 </body>
 </html>

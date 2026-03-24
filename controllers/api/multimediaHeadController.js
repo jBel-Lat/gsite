@@ -1312,7 +1312,7 @@ const updateProfile = async (req, res) => {
     removeLocalFile(currentPicture);
   }
 
-  await writeActivityLog(req, 'Updated multimedia head profile', `${name} <${email}>`);
+  await writeActivityLog(req, 'Updated multimedia profile', `${name} <${email}>`);
 
   return res.json({ ok: true, message: 'Profile updated successfully' });
 };
@@ -1343,7 +1343,7 @@ const changePassword = async (req, res) => {
   const nextHash = await bcrypt.hash(newPassword, 10);
   await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [nextHash, actor.id]);
 
-  await writeActivityLog(req, 'Changed multimedia head password', `User ID ${actor.id}`);
+  await writeActivityLog(req, 'Changed multimedia password', `User ID ${actor.id}`);
 
   return res.json({ ok: true, message: 'Password changed successfully' });
 };

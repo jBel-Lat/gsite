@@ -384,6 +384,7 @@ const login = async (req, res) => {
       role: frontendRole,
       username: sessionUser.username || '',
       name: sessionUser.name || '',
+      profile_picture: sessionUser.profile_picture || null,
     };
 
     console.log('[auth:login] success', {

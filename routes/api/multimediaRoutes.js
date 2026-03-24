@@ -95,13 +95,12 @@ router.delete('/logs', requireRole('multimedia_head'), asyncHandler(multimediaHe
 router.get('/reports', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getReports));
 router.get('/notifications', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listNotifications));
 
-router.get('/profile', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getProfile));
+router.get('/profile', asyncHandler(multimediaHeadController.getProfile));
 router.put(
   '/profile',
-  requireRole('multimedia_head'),
   withUpload(memberPhotoUpload.single('photo')),
   asyncHandler(multimediaHeadController.updateProfile)
 );
-router.put('/profile/password', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.changePassword));
+router.put('/profile/password', asyncHandler(multimediaHeadController.changePassword));
 
 module.exports = router;

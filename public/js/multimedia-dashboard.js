@@ -13,9 +13,20 @@
   };
 
   const getStoredToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+  const getStoredUser = () => {
+    const raw = localStorage.getItem('user');
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_error) {
+      return {};
+    }
+  };
   const token = getStoredToken();
   const role = normalizeRole(localStorage.getItem('role') || sessionStorage.getItem('role') || '');
   const roleGroup = String(localStorage.getItem('role_group') || sessionStorage.getItem('role_group') || '').toLowerCase();
+  const storedUser = getStoredUser();
 
   const multimediaRoles = [
     'superadmin',
@@ -63,6 +74,8 @@
     pageTitle: document.getElementById('pageTitle'),
     navButtons: Array.from(document.querySelectorAll('.mm-nav-item[data-section]')),
     sections: Array.from(document.querySelectorAll('.mm-section')),
+    sidebarProfileImage: document.getElementById('sidebarProfileImage'),
+    sidebarProfileName: document.getElementById('sidebarProfileName'),
     sidebarRoleText: document.getElementById('sidebarRoleText'),
     sidebar: document.getElementById('mmSidebar'),
     logoutBtn: document.getElementById('logoutBtn'),
@@ -172,6 +185,32 @@
 
   const roleLabel = (roleValue) => {
     return roleValue.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  };
+
+  const toPublicAssetUrl = (value, fallback = '/assets/images/default-avatar.png') => {
+    const raw = String(value || '').trim();
+    if (!raw) return fallback;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (raw.toLowerCase() === 'default.png') return fallback;
+    if (!raw.includes('/')) return `/uploads/profiles/${raw}`;
+    return `/${raw.replace(/^\/+/, '')}`;
+  };
+
+  const applySidebarIdentity = ({ name, role: nextRole, profile_picture: profilePicture } = {}) => {
+    const displayName =
+      String(name || '').trim() || String(storedUser.name || storedUser.username || '').trim() || 'Multimedia User';
+    const displayRole = String(nextRole || state.role || '').trim();
+    const profileUrl = toPublicAssetUrl(profilePicture || storedUser.profile_picture || '');
+
+    if (els.sidebarProfileName) {
+      els.sidebarProfileName.textContent = displayName;
+    }
+    if (els.sidebarRoleText) {
+      els.sidebarRoleText.textContent = roleLabel(displayRole || 'member');
+    }
+    if (els.sidebarProfileImage) {
+      els.sidebarProfileImage.src = profileUrl;
+    }
   };
 
   const apiFetch = async (url, options = {}) => {
@@ -980,21 +1019,36 @@
   };
 
   const loadProfile = async () => {
-    if (!state.isHead || !els.profileForm) return;
+    if (!els.profileForm) return;
     const data = await apiFetch('/profile');
     const profile = data.profile || {};
+
+    applySidebarIdentity(profile);
+
     els.profileName.value = profile.name || '';
     els.profileEmail.value = profile.email || '';
+
+    const mergedUser = {
+      ...(storedUser || {}),
+      id: profile.id || storedUser.id || null,
+      username: profile.username || storedUser.username || '',
+      name: profile.name || storedUser.name || '',
+      email: profile.email || storedUser.email || '',
+      role: profile.role || state.role,
+      profile_picture: profile.profile_picture || storedUser.profile_picture || '',
+    };
+    localStorage.setItem('user', JSON.stringify(mergedUser));
   };
 
   const mountProfileEvents = () => {
-    if (!state.isHead || !els.profileForm) return;
+    if (!els.profileForm) return;
 
     els.profileForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(els.profileForm);
       try {
         await apiFetch('/profile', { method: 'PUT', body: formData });
+        await loadProfile();
         showNotice('success', 'Profile updated successfully.');
       } catch (error) {
         showNotice('error', error.message);
@@ -1088,9 +1142,11 @@
       isHead: state.isHead,
     });
 
-    if (els.sidebarRoleText) {
-      els.sidebarRoleText.textContent = roleLabel(state.role);
-    }
+    applySidebarIdentity({
+      name: storedUser.name || storedUser.username || '',
+      role: state.role,
+      profile_picture: storedUser.profile_picture || '',
+    });
 
     if (!state.isHead) {
       els.headOnly.forEach((el) => el.classList.add('hidden'));

@@ -46,9 +46,18 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.18);
 }
 
+.mm-brand-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .mm-brand h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.2px;
 }
