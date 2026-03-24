@@ -98,7 +98,6 @@ const formatFile = (row) => ({
   uploaded_by_name: row.uploaded_by_name || 'Unknown',
   created_at: row.created_at,
   updated_at: row.updated_at,
-  download_url: `/api/multimedia/files/${row.id}/download`,
   view_url: `/api/multimedia/files/${row.id}/view`,
 });
 
@@ -817,31 +816,10 @@ const changeFileStatus = async (req, res) => {
 };
 
 const downloadFile = async (req, res) => {
-  const fileId = toInt(req.params.id);
-  if (!fileId) {
-    return res.status(400).json({ ok: false, error: 'Invalid file id' });
-  }
-
-  const file = await fetchFileById(fileId);
-  if (!file) {
-    return res.status(404).json({ ok: false, error: 'File not found' });
-  }
-
-  if (!ensureFileRoleAccess(req, file)) {
-    return res.status(403).json({ ok: false, error: 'You do not have access to this file' });
-  }
-
-  const absolutePath = resolveStoredUploadAbsolutePath(file.file_path);
-  if (!absolutePath || !fs.existsSync(absolutePath)) {
-    console.error('[multimedia:downloadFile] file missing', {
-      fileId: file.id,
-      filePath: file.file_path,
-      cwd: process.cwd(),
-    });
-    return res.status(404).json({ ok: false, error: 'File is missing from server storage' });
-  }
-
-  return res.download(absolutePath, file.file_name);
+  return res.status(403).json({
+    ok: false,
+    error: 'Downloading files is disabled by system policy. Use File Edit to update content.',
+  });
 };
 
 const viewFile = async (req, res) => {
@@ -871,12 +849,15 @@ const viewFile = async (req, res) => {
 
   const contentType = file.mime_type || 'application/octet-stream';
   const canInline = contentType.startsWith('image/') || contentType === 'application/pdf' || contentType === 'text/plain';
+  if (!canInline) {
+    return res.status(415).json({
+      ok: false,
+      error: 'Preview not supported for this file type. Download is disabled; ask Multimedia Head to convert/upload as image, PDF, or text.',
+    });
+  }
 
   res.setHeader('Content-Type', contentType);
-  res.setHeader(
-    'Content-Disposition',
-    `${canInline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(file.file_name)}"`
-  );
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.file_name)}"`);
 
   return res.sendFile(absolutePath);
 };

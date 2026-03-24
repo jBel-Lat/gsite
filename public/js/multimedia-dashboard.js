@@ -215,27 +215,7 @@
     return payload;
   };
 
-  const parseFilenameFromDisposition = (contentDisposition) => {
-    if (!contentDisposition) return null;
-
-    const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-    if (utfMatch && utfMatch[1]) {
-      try {
-        return decodeURIComponent(utfMatch[1]).trim();
-      } catch (_error) {
-        return utfMatch[1].trim();
-      }
-    }
-
-    const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
-    if (plainMatch && plainMatch[1]) {
-      return plainMatch[1].trim();
-    }
-
-    return null;
-  };
-
-  const fetchProtectedFileBlob = async (resourceUrl, fallbackName = 'download.bin') => {
+  const fetchProtectedFileBlob = async (resourceUrl) => {
     const authToken = getStoredToken();
     const headers = new Headers();
     if (authToken) {
@@ -271,11 +251,9 @@
     }
 
     const blob = await response.blob();
-    const contentDisposition = response.headers.get('content-disposition') || '';
-    const fileName = parseFilenameFromDisposition(contentDisposition) || fallbackName;
     const mimeType = response.headers.get('content-type') || blob.type || 'application/octet-stream';
 
-    return { blob, fileName, mimeType };
+    return { blob, mimeType };
   };
 
   const activateSection = (sectionId) => {
@@ -419,7 +397,6 @@
             <td>
               <div class="mini-actions">
                 <button class="mini-btn" data-action="file-view" data-id="${file.id}">View</button>
-                <button class="mini-btn" data-action="file-download" data-id="${file.id}">Download</button>
                 ${headActions}
               </div>
               ${fileAvailable ? '' : '<small class="muted">File missing on server storage. Re-upload required.</small>'}
@@ -615,33 +592,6 @@
             viewerTab.close();
           }
           showNotice('error', error.message || 'Unable to view file.');
-        }
-        return;
-      }
-
-      if (action === 'file-download') {
-        if (file.file_available === false) {
-          showNotice('error', state.isHead
-            ? 'This file is missing on server storage. Please edit this row and upload the file again.'
-            : 'This file is missing on server storage. Please ask Multimedia Head to re-upload it.');
-          return;
-        }
-
-        try {
-          const { blob, fileName } = await fetchProtectedFileBlob(
-            file.download_url,
-            file.file_name || 'download.bin'
-          );
-          const objectUrl = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = objectUrl;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
-        } catch (error) {
-          showNotice('error', error.message || 'Unable to download file.');
         }
         return;
       }
