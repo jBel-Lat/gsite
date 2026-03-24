@@ -451,9 +451,13 @@
         const statusClass = `status-${file.status}`;
         const fileAvailable = file.file_available !== false;
         const isDriveLink = file.source_type === 'gdrive_link' || Boolean(file.external_url);
+        const resourceLabel = file.file_name || file.title || 'Open Link';
+        const resourceHref = file.external_url || file.file_path || '';
         const resourceCell = isDriveLink
-          ? `<a href="${escapeHtml(file.external_url || '#')}" target="_blank" rel="noopener">Google Drive Link</a>`
-          : escapeHtml(file.file_name);
+          ? resourceHref
+            ? `<a href="${escapeHtml(resourceHref)}" target="_blank" rel="noopener">${escapeHtml(resourceLabel)}</a>`
+            : escapeHtml(resourceLabel)
+          : escapeHtml(file.file_name || file.title || '-');
         const headActions = state.isHead
           ? `
             <button class="mini-btn" data-action="file-edit" data-id="${file.id}">Edit</button>
