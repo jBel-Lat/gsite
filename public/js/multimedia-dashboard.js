@@ -389,6 +389,7 @@
     els.filesTableBody.innerHTML = state.files
       .map((file) => {
         const statusClass = `status-${file.status}`;
+        const fileAvailable = file.file_available !== false;
         const headActions = state.isHead
           ? `
             <button class="mini-btn" data-action="file-edit" data-id="${file.id}">Edit</button>
@@ -417,10 +418,11 @@
             <td>${escapeHtml(formatDate(file.created_at))}</td>
             <td>
               <div class="mini-actions">
-                <button class="mini-btn" data-action="file-view" data-id="${file.id}">View</button>
-                <button class="mini-btn" data-action="file-download" data-id="${file.id}">Download</button>
+                <button class="mini-btn" data-action="file-view" data-id="${file.id}" ${fileAvailable ? '' : 'disabled'}>View</button>
+                <button class="mini-btn" data-action="file-download" data-id="${file.id}" ${fileAvailable ? '' : 'disabled'}>Download</button>
                 ${headActions}
               </div>
+              ${fileAvailable ? '' : '<small class="muted">File missing on server storage</small>'}
             </td>
           </tr>
         `;

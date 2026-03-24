@@ -1,11 +1,9 @@
-const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { ensureUploadDir } = require('../utils/uploadPaths');
 
 const ensureDir = (relativeDir) => {
-  const target = path.join(process.cwd(), relativeDir);
-  fs.mkdirSync(target, { recursive: true });
-  return target;
+  return ensureUploadDir(relativeDir);
 };
 
 const safeFileName = (originalName) => {

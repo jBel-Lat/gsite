@@ -1,9 +1,9 @@
 const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../../config/db');
 const { cleanText } = require('../../utils/http');
+const { toStoredUploadPath, resolveStoredUploadAbsolutePath } = require('../../utils/uploadPaths');
 const {
   MULTIMEDIA_HEAD_ROLE,
   canAccessAssignedTeam,
@@ -26,19 +26,10 @@ const normalizeEnum = (value, allowed, fallback = null) => {
   return allowed.includes(normalized) ? normalized : fallback;
 };
 
-const cwdNormalized = process.cwd().replace(/\\/g, '/');
-
-const toRelativePath = (absolutePath) => {
-  const normalized = String(absolutePath || '').replace(/\\/g, '/');
-  if (normalized.startsWith(cwdNormalized)) {
-    return normalized.slice(cwdNormalized.length).replace(/^\/+/, '');
-  }
-  return normalized.replace(/^\/+/, '');
-};
-
-const removeLocalFile = (relativePath) => {
-  if (!relativePath) return;
-  const absolutePath = path.join(process.cwd(), relativePath);
+const removeLocalFile = (storedPath) => {
+  if (!storedPath) return;
+  const absolutePath = resolveStoredUploadAbsolutePath(storedPath);
+  if (!absolutePath) return;
   if (fs.existsSync(absolutePath)) {
     fs.unlinkSync(absolutePath);
   }
@@ -365,7 +356,7 @@ const createMember = async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const photo = req.file ? toRelativePath(req.file.path) : null;
+  const photo = req.file ? toStoredUploadPath(req.file.path) : null;
   const actor = getActor(req);
 
   const [userInsertResult] = await pool.query(
@@ -419,7 +410,7 @@ const updateMember = async (req, res) => {
   const username = cleanText(req.body.username || member.username, 80);
   const role = normalizeEnum(req.body.role || member.role, MEMBER_ROLES, member.role);
   const nextPassword = String(req.body.password || '');
-  const nextPhoto = req.file ? toRelativePath(req.file.path) : member.photo;
+  const nextPhoto = req.file ? toStoredUploadPath(req.file.path) : member.photo;
 
   if (!name || !email || !username || !role) {
     return res.status(400).json({ ok: false, error: 'name, email, username, and role are required' });
@@ -629,7 +620,15 @@ const listFiles = async (req, res) => {
 
   const [rows] = await pool.query(sql, params);
 
-  return res.json({ ok: true, files: rows.map(formatFile) });
+  const files = rows.map((row) => {
+    const formatted = formatFile(row);
+    return {
+      ...formatted,
+      file_available: Boolean(resolveStoredUploadAbsolutePath(formatted.file_path)),
+    };
+  });
+
+  return res.json({ ok: true, files });
 };
 
 const getFile = async (req, res) => {
@@ -663,7 +662,14 @@ const createFile = async (req, res) => {
     return res.status(400).json({ ok: false, error: 'File upload is required' });
   }
 
-  const relativePath = toRelativePath(req.file.path);
+  const relativePath = toStoredUploadPath(req.file.path);
+  const uploadedAbsolutePath = resolveStoredUploadAbsolutePath(relativePath);
+  if (!uploadedAbsolutePath) {
+    return res.status(500).json({
+      ok: false,
+      error: 'Uploaded file could not be saved on server storage',
+    });
+  }
   const actor = getActor(req);
 
   const [insertResult] = await pool.query(
@@ -724,7 +730,14 @@ const updateFile = async (req, res) => {
   let fileSize = existing.file_size;
 
   if (req.file) {
-    filePath = toRelativePath(req.file.path);
+    filePath = toStoredUploadPath(req.file.path);
+    const uploadedAbsolutePath = resolveStoredUploadAbsolutePath(filePath);
+    if (!uploadedAbsolutePath) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Uploaded file could not be saved on server storage',
+      });
+    }
     fileName = req.file.originalname;
     mimeType = req.file.mimetype || null;
     fileSize = req.file.size || 0;
@@ -818,8 +831,13 @@ const downloadFile = async (req, res) => {
     return res.status(403).json({ ok: false, error: 'You do not have access to this file' });
   }
 
-  const absolutePath = path.join(process.cwd(), file.file_path);
-  if (!fs.existsSync(absolutePath)) {
+  const absolutePath = resolveStoredUploadAbsolutePath(file.file_path);
+  if (!absolutePath || !fs.existsSync(absolutePath)) {
+    console.error('[multimedia:downloadFile] file missing', {
+      fileId: file.id,
+      filePath: file.file_path,
+      cwd: process.cwd(),
+    });
     return res.status(404).json({ ok: false, error: 'File is missing from server storage' });
   }
 
@@ -841,8 +859,13 @@ const viewFile = async (req, res) => {
     return res.status(403).json({ ok: false, error: 'You do not have access to this file' });
   }
 
-  const absolutePath = path.join(process.cwd(), file.file_path);
-  if (!fs.existsSync(absolutePath)) {
+  const absolutePath = resolveStoredUploadAbsolutePath(file.file_path);
+  if (!absolutePath || !fs.existsSync(absolutePath)) {
+    console.error('[multimedia:viewFile] file missing', {
+      fileId: file.id,
+      filePath: file.file_path,
+      cwd: process.cwd(),
+    });
     return res.status(404).json({ ok: false, error: 'File is missing from server storage' });
   }
 
@@ -916,7 +939,7 @@ const createAnnouncement = async (req, res) => {
   const title = cleanText(req.body.title, 255);
   const description = cleanText(req.body.description, 4000);
   const targetAudience = normalizeEnum(req.body.target_audience, ANNOUNCEMENT_AUDIENCE, 'students');
-  const image = req.file ? toRelativePath(req.file.path) : null;
+  const image = req.file ? toStoredUploadPath(req.file.path) : null;
 
   if (!title || !description) {
     return res.status(400).json({ ok: false, error: 'title and description are required' });
@@ -962,7 +985,7 @@ const updateAnnouncement = async (req, res) => {
     ANNOUNCEMENT_AUDIENCE,
     existing.target_audience
   );
-  const image = req.file ? toRelativePath(req.file.path) : existing.image;
+  const image = req.file ? toStoredUploadPath(req.file.path) : existing.image;
 
   await pool.query(
     `
@@ -1147,7 +1170,7 @@ const updateProfile = async (req, res) => {
   }
 
   const currentPicture = rows[0].profile_picture;
-  const nextPicture = req.file ? toRelativePath(req.file.path) : currentPicture;
+  const nextPicture = req.file ? toStoredUploadPath(req.file.path) : currentPicture;
 
   await pool.query('UPDATE users SET name = ?, email = ?, profile_picture = ? WHERE id = ?', [
     name,

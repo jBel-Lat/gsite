@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const { testConnection, getDbConfig, getAuthSchema, getDbType } = require('./config/database');
+const { getUploadsRoot } = require('./utils/uploadPaths');
 const authRoutes = require('./routes/authRoutes');
 const apiRoutes = require('./routes/api');
 const { attachUser } = require('./middleware/auth');
@@ -15,7 +16,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 const sessionSecret = process.env.SESSION_SECRET || 'change-this-in-production';
 const publicDir = path.join(__dirname, 'public');
 const assetsDir = path.join(__dirname, 'assets');
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = getUploadsRoot();
 
 app.disable('x-powered-by');
 if (isProduction) {
@@ -89,6 +90,7 @@ app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   console.log('API base: /api');
   console.log(`Public directory: ${publicDir}`);
+  console.log(`Uploads directory: ${uploadsDir}`);
   console.log('Auth routes: GET /api/auth/health, GET /api/auth/db-debug, POST /api/auth/login, POST /api/auth/register, GET /api/auth/me, POST /api/auth/logout');
   console.log('Database type:', dbType);
   console.log('DB env summary:', {

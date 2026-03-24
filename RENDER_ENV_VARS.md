@@ -13,6 +13,7 @@ Set these in your Render Web Service:
 - `DB_CHARSET` (recommended: `utf8mb4`)
 - `SESSION_SECRET` = long random value
 - `JWT_SECRET` = long random value (required for Bearer token auth)
+- `UPLOADS_DIR` = `/var/data/uploads` (if using Render persistent disk)
 
 Optional:
 
