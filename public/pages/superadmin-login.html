@@ -27,13 +27,13 @@
 
     const roleRedirectMap = {
       superadmin: '/superadmin/dashboard',
-      admin: '/admin/dashboard.html',
+      admin: '/admin/dashboard',
       developer_head: '/developer/dashboard',
       developer_member: '/developer/dashboard',
       multimedia_head: '/multimedia/dashboard',
       multimedia_member: '/multimedia/dashboard',
-      student: '/student/dashboard.html',
-      panelist: '/panelist/dashboard.html',
+      student: '/student/dashboard',
+      panelist: '/student/dashboard',
     };
 
     const getToken = () => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');

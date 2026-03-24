@@ -39,11 +39,20 @@ const getRequestUser = (req) => {
   return getUserFromJwt(req);
 };
 
+const syncUserIntoSession = (req, user) => {
+  if (!user) return;
+  if (!req.session) return;
+  if (!req.session.user) {
+    req.session.user = { ...user };
+  }
+};
+
 const requireAuth = (req, res, next) => {
   const user = getRequestUser(req);
   if (!user) {
     return res.status(401).json({ ok: false, error: 'Authentication required' });
   }
+  syncUserIntoSession(req, user);
   req.user = user;
   return next();
 };
@@ -59,13 +68,16 @@ const requireRoles = (roles) => {
     if (!roleList.includes(user.role)) {
       return res.status(403).json({ ok: false, error: 'Access denied' });
     }
+    syncUserIntoSession(req, user);
     req.user = user;
     return next();
   };
 };
 
 const attachUser = (req, _res, next) => {
-  req.user = getRequestUser(req);
+  const user = getRequestUser(req);
+  syncUserIntoSession(req, user);
+  req.user = user;
   next();
 };
 

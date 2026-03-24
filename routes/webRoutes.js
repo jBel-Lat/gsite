@@ -28,6 +28,9 @@ pageRoute('/superadmin/login', 'superadmin-login.html');
 pageRoute('/superadmin/dashboard', 'superadmin-dashboard.html');
 pageRoute('/superadmin/users', 'superadmin-users.html');
 pageRoute('/superadmin/teams', 'superadmin-teams.html');
+pageRoute('/admin/dashboard', 'superadmin-dashboard.html');
+pageRoute('/admin/users', 'superadmin-users.html');
+pageRoute('/admin/teams', 'superadmin-teams.html');
 
 pageRoute('/developer/dashboard', 'developer-dashboard.html');
 pageRoute('/developer/announcements', 'developer-announcements.html');
@@ -47,7 +50,6 @@ pageRoute('/multimedia/repositories', 'multimedia-repositories.html');
 pageRoute('/profile', 'profile.html');
 
 // Compatibility aliases for legacy/alternative role routes.
-router.get(['/admin/dashboard', '/admin/dashboard.html'], (_req, res) => res.redirect('/superadmin/dashboard'));
 router.get(['/panelist/dashboard', '/panelist/dashboard.html'], (_req, res) => res.redirect('/student/dashboard'));
 router.get('/logout', (_req, res) => res.redirect('/admin/login'));
 

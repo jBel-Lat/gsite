@@ -5,7 +5,7 @@ const adminController = require('../../controllers/api/adminController');
 
 const router = express.Router();
 
-router.use(requireRoles('superadmin'));
+router.use(requireRoles(['superadmin', 'admin']));
 
 router.get('/dashboard', asyncHandler(adminController.getDashboardSummary));
 router.get('/groups', asyncHandler(adminController.listGroups));

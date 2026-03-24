@@ -4,7 +4,7 @@
     '/admin': ['superadmin', 'admin'],
     '/developer': ['developer_head', 'developer_member'],
     '/multimedia': ['multimedia_head', 'multimedia_member'],
-    '/student': ['student'],
+    '/student': ['student', 'panelist'],
     '/panelist': ['panelist'],
     '/profile': [
       'superadmin',
@@ -20,13 +20,13 @@
 
   const roleRedirectMap = {
     superadmin: '/superadmin/dashboard',
-    admin: '/admin/dashboard.html',
+    admin: '/admin/dashboard',
     developer_head: '/developer/dashboard',
     developer_member: '/developer/dashboard',
     multimedia_head: '/multimedia/dashboard',
     multimedia_member: '/multimedia/dashboard',
-    student: '/student/dashboard.html',
-    panelist: '/panelist/dashboard.html',
+    student: '/student/dashboard',
+    panelist: '/student/dashboard',
   };
 
   function getStoredToken() {
@@ -45,7 +45,9 @@
 
   const linksByRole = {
     admin: [
-      { href: '/admin/dashboard.html', label: 'Dashboard', icon: 'fa-tachometer-alt' },
+      { href: '/admin/dashboard', label: 'Dashboard', icon: 'fa-tachometer-alt' },
+      { href: '/admin/users', label: 'Users', icon: 'fa-users-cog' },
+      { href: '/admin/teams', label: 'Teams', icon: 'fa-layer-group' },
       { href: '/profile', label: 'Profile', icon: 'fa-user-circle' },
     ],
     superadmin: [
@@ -85,8 +87,8 @@
       { href: '/multimedia/repositories', label: 'Repositories', icon: 'fa-folder-open' },
       { href: '/profile', label: 'Profile', icon: 'fa-user-circle' },
     ],
-    student: [{ href: '/student/dashboard.html', label: 'Dashboard', icon: 'fa-home' }],
-    panelist: [{ href: '/panelist/dashboard.html', label: 'Dashboard', icon: 'fa-clipboard-check' }],
+    student: [{ href: '/student/dashboard', label: 'Dashboard', icon: 'fa-home' }],
+    panelist: [{ href: '/student/dashboard', label: 'Dashboard', icon: 'fa-clipboard-check' }],
   };
 
   function roleAllowedForPath(role, pathname) {
@@ -127,9 +129,11 @@
 
   function buildSidebarLinks(user) {
     const list = linksByRole[user.role] || [];
+    const currentPath = window.location.pathname.replace(/\.html$/, '');
     return list
       .map((item) => {
-        const active = window.location.pathname === item.href ? 'active' : '';
+        const itemPath = String(item.href || '').replace(/\.html$/, '');
+        const active = currentPath === itemPath ? 'active' : '';
         return `<li><a class="${active}" href="${item.href}"><i class="fas ${item.icon}"></i><span>${item.label}</span></a></li>`;
       })
       .join('');

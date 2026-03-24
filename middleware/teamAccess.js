@@ -7,7 +7,7 @@ const requireTeamAccess = (team) => {
   const allowedRoles = TEAM_ROLE_ALLOW[team] || [];
 
   return (req, res, next) => {
-    const user = req.session?.user;
+    const user = req.user || req.session?.user;
     if (!user) {
       return res.status(401).json({ ok: false, error: 'Authentication required' });
     }
@@ -20,7 +20,7 @@ const requireTeamAccess = (team) => {
 
 const requireTeamHead = (team) => {
   return (req, res, next) => {
-    const user = req.session?.user;
+    const user = req.user || req.session?.user;
     if (!user) {
       return res.status(401).json({ ok: false, error: 'Authentication required' });
     }
@@ -36,4 +36,3 @@ module.exports = {
   requireTeamAccess,
   requireTeamHead,
 };
-
