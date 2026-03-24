@@ -27,6 +27,9 @@
   const role = normalizeRole(localStorage.getItem('role') || sessionStorage.getItem('role') || '');
   const roleGroup = String(localStorage.getItem('role_group') || sessionStorage.getItem('role_group') || '').toLowerCase();
   const storedUser = getStoredUser();
+  const multimediaPageMode = String(document.body?.dataset?.multimediaPage || '').toLowerCase();
+  const multimediaHeadPagePath = '/pages/multimedia-head.html';
+  const multimediaTeamPagePath = '/pages/multimedia-team.html';
 
   const multimediaRoles = [
     'superadmin',
@@ -50,9 +53,19 @@
     return;
   }
 
+  const isHeadRole = ['multimedia_head', 'superadmin', 'admin'].includes(role);
+  if (multimediaPageMode === 'head' && !isHeadRole) {
+    window.location.replace(multimediaTeamPagePath);
+    return;
+  }
+  if (multimediaPageMode === 'team' && isHeadRole) {
+    window.location.replace(multimediaHeadPagePath);
+    return;
+  }
+
   const state = {
     role,
-    isHead: role === 'multimedia_head' || role === 'superadmin',
+    isHead: isHeadRole,
     members: [],
     files: [],
     announcements: [],

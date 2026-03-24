@@ -3,324 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Multimedia Head Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/assets/css/multimedia-dashboard.css">
+  <title>Redirecting...</title>
 </head>
-<body data-role="multimedia,multimedia_head,photographer,videographer,graphic_designer,documentator,multimedia_member,admin,superadmin">
-  <div class="mm-layout">
-    <aside class="mm-sidebar" id="mmSidebar">
-      <div class="mm-brand">
-        <img
-          id="sidebarProfileImage"
-          class="mm-brand-avatar"
-          src="/assets/images/default-avatar.png"
-          alt="Profile picture"
-        >
-        <div>
-          <h1 id="sidebarProfileName">Multimedia User</h1>
-          <p id="sidebarRoleText">Position</p>
-        </div>
-      </div>
+<body>
+  <p>Redirecting to your multimedia dashboard...</p>
+  <script>
+    (function () {
+      var normalizeRole = function (rawRole) {
+        var role = String(rawRole || '').toLowerCase().trim().replace(/\s+/g, '_');
+        if (!role) return '';
+        var aliases = {
+          'multimedia-head': 'multimedia_head',
+          multimedia: 'multimedia_head',
+          media_head: 'multimedia_head'
+        };
+        return aliases[role] || role;
+      };
 
-      <nav class="mm-nav" id="menuNav">
-        <button class="mm-nav-item active" data-section="dashboardSection"><i class="fa-solid fa-gauge"></i>Dashboard</button>
-        <button class="mm-nav-item head-only" data-section="membersSection"><i class="fa-solid fa-users"></i>Team Accounts</button>
-        <button class="mm-nav-item" data-section="filesSection"><i class="fa-solid fa-folder-open"></i>File Management</button>
-        <button class="mm-nav-item" data-section="announcementsSection"><i class="fa-solid fa-bullhorn"></i>Announcements</button>
-        <button class="mm-nav-item head-only" data-section="logsSection"><i class="fa-solid fa-clock-rotate-left"></i>Activity Logs</button>
-        <button class="mm-nav-item head-only" data-section="reportsSection"><i class="fa-solid fa-chart-simple"></i>Reports</button>
-        <button class="mm-nav-item" data-section="profileSection"><i class="fa-solid fa-user-gear"></i>Profile</button>
-        <button class="mm-nav-item" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i>Logout</button>
-      </nav>
-    </aside>
+      var role = normalizeRole(localStorage.getItem('role') || sessionStorage.getItem('role') || '');
+      var headRoles = ['multimedia_head', 'admin', 'superadmin'];
+      var teamRoles = ['photographer', 'videographer', 'graphic_designer', 'documentator', 'multimedia_member', 'multimedia'];
+      var target = '/';
 
-    <main class="mm-main">
-      <header class="mm-header">
-        <div>
-          <h2 id="pageTitle">Dashboard</h2>
-          <p class="muted" id="guardMessage">Checking access...</p>
-        </div>
-      </header>
+      if (headRoles.indexOf(role) !== -1) {
+        target = '/pages/multimedia-head.html';
+      } else if (teamRoles.indexOf(role) !== -1) {
+        target = '/pages/multimedia-team.html';
+      }
 
-      <section class="mm-panel" id="noticePanel"></section>
-
-      <section class="mm-section active" id="dashboardSection">
-        <div class="mm-cards" id="summaryCards">
-          <article class="mm-card"><h3>Total Team Members</h3><p id="sumMembers">0</p></article>
-          <article class="mm-card"><h3>Total Uploaded Files</h3><p id="sumFiles">0</p></article>
-          <article class="mm-card"><h3>Pending Files</h3><p id="sumPending">0</p></article>
-          <article class="mm-card"><h3>Processing Files</h3><p id="sumProcessing">0</p></article>
-          <article class="mm-card"><h3>Done Files</h3><p id="sumDone">0</p></article>
-          <article class="mm-card"><h3>Total Announcements</h3><p id="sumAnnouncements">0</p></article>
-        </div>
-
-        <div class="mm-grid-2">
-          <article class="mm-panel">
-            <div class="mm-panel-header"><h3>Notifications</h3></div>
-            <div id="notificationsList" class="mm-list"></div>
-          </article>
-          <article class="mm-panel">
-            <div class="mm-panel-header"><h3>Quick Reports</h3></div>
-            <div id="quickReports" class="mm-list"></div>
-          </article>
-        </div>
-      </section>
-
-      <section class="mm-section head-only" id="membersSection">
-        <article class="mm-panel">
-          <div class="mm-panel-header"><h3>Create Team Account</h3></div>
-          <form id="memberForm" class="mm-form-grid" enctype="multipart/form-data">
-            <input type="hidden" id="memberId" name="id">
-            <label>Name<input type="text" name="name" required></label>
-            <label>Email<input type="email" name="email" required></label>
-            <label>Username<input type="text" name="username" required></label>
-            <label>Password<input type="password" name="password" id="memberPassword" required></label>
-            <label>Role
-              <select name="role" required>
-                <option value="photographer">Photographer</option>
-                <option value="videographer">Videographer</option>
-                <option value="graphic_designer">Graphic Designer</option>
-                <option value="documentator">Documentator</option>
-              </select>
-            </label>
-            <label>Photo<input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp"></label>
-            <div class="mm-form-actions">
-              <button type="submit" class="mm-btn primary" id="memberSubmitBtn">Create Account</button>
-              <button type="button" class="mm-btn ghost" id="memberCancelBtn">Cancel Edit</button>
-            </div>
-          </form>
-        </article>
-
-        <article class="mm-panel">
-          <div class="mm-panel-header">
-            <h3>Team Accounts</h3>
-            <div class="mm-tools">
-              <input type="search" id="memberSearch" placeholder="Search name/email/username">
-              <select id="memberRoleFilter">
-                <option value="">All Roles</option>
-                <option value="photographer">Photographer</option>
-                <option value="videographer">Videographer</option>
-                <option value="graphic_designer">Graphic Designer</option>
-                <option value="documentator">Documentator</option>
-              </select>
-            </div>
-          </div>
-          <div class="mm-table-wrap">
-            <table class="mm-table" id="membersTable">
-              <thead>
-                <tr>
-                  <th>Photo</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Username</th>
-                  <th>Password</th>
-                  <th>Role</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <p class="empty-state" id="membersEmpty">No members yet.</p>
-        </article>
-      </section>
-
-      <section class="mm-section" id="filesSection">
-        <article class="mm-panel head-only">
-          <div class="mm-panel-header"><h3>Add Google Drive Link</h3></div>
-          <form id="fileForm" class="mm-form-grid">
-            <input type="hidden" id="fileId" name="id">
-            <label>Title<input type="text" name="title" required></label>
-            <label>Description<textarea name="description" rows="2" required></textarea></label>
-            <label>Google Drive Link<input type="url" name="drive_url" id="fileDriveUrl" placeholder="https://drive.google.com/..." required></label>
-            <label>Assigned Team
-              <select name="assigned_team" required>
-                <option value="photographer">Photographer</option>
-                <option value="videographer">Videographer</option>
-                <option value="graphic_designer">Graphic Designer</option>
-                <option value="documentator">Documentator</option>
-                <option value="all_teams">All Teams</option>
-              </select>
-            </label>
-            <label>Display Name (optional)<input type="text" name="file_name" placeholder="Optional display name"></label>
-            <div class="mm-form-actions">
-              <button type="submit" class="mm-btn primary" id="fileSubmitBtn">Save Link</button>
-              <button type="button" class="mm-btn ghost" id="fileCancelBtn">Cancel Edit</button>
-            </div>
-          </form>
-        </article>
-
-        <article class="mm-panel">
-          <div class="mm-panel-header">
-            <h3>Files</h3>
-            <div class="mm-tools">
-              <input type="search" id="fileSearch" placeholder="Search title/description/file">
-              <select id="fileTeamFilter">
-                <option value="">All Teams</option>
-                <option value="photographer">Photographer</option>
-                <option value="videographer">Videographer</option>
-                <option value="graphic_designer">Graphic Designer</option>
-                <option value="documentator">Documentator</option>
-                <option value="all_teams">All Teams</option>
-              </select>
-              <select id="fileStatusFilter">
-                <option value="">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="done">Done</option>
-              </select>
-            </div>
-          </div>
-          <p class="muted" style="margin: 0 0 10px 0;">Google Drive links only. Download from this system is disabled; click View to open the Drive link.</p>
-          <div class="mm-table-wrap">
-            <table class="mm-table" id="filesTable">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Description</th>
-                  <th>Resource</th>
-                  <th>Uploaded By</th>
-                  <th>Assigned Team</th>
-                  <th>Status</th>
-                  <th>Date Uploaded</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <p class="empty-state" id="filesEmpty">No files uploaded yet.</p>
-        </article>
-      </section>
-
-      <section class="mm-section" id="announcementsSection">
-        <article class="mm-panel head-only">
-          <div class="mm-panel-header"><h3>Create Announcement</h3></div>
-          <form id="announcementForm" class="mm-form-grid" enctype="multipart/form-data">
-            <input type="hidden" id="announcementId" name="id">
-            <label>Title<input type="text" name="title" required></label>
-            <label>Description<textarea name="description" rows="3" required></textarea></label>
-            <label>Audience
-              <select name="target_audience" required>
-                <option value="students">Students</option>
-                <option value="multimedia_team">Multimedia Team</option>
-                <option value="all">All</option>
-              </select>
-            </label>
-            <label>Image<input type="file" name="image" accept=".jpg,.jpeg,.png,.webp"></label>
-            <div class="mm-form-actions">
-              <button type="submit" class="mm-btn primary" id="announcementSubmitBtn">Post Announcement</button>
-              <button type="button" class="mm-btn ghost" id="announcementCancelBtn">Cancel Edit</button>
-            </div>
-          </form>
-        </article>
-
-        <article class="mm-panel">
-          <div class="mm-panel-header">
-            <h3>Announcements</h3>
-            <div class="mm-tools">
-              <input type="search" id="announcementSearch" placeholder="Search announcements">
-            </div>
-          </div>
-          <div class="mm-table-wrap">
-            <table class="mm-table" id="announcementsTable">
-              <thead>
-                <tr>
-                  <th>Image</th>
-                  <th>Title</th>
-                  <th>Description</th>
-                  <th>Audience</th>
-                  <th>Date Posted</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <p class="empty-state" id="announcementsEmpty">No announcements yet.</p>
-        </article>
-      </section>
-
-      <section class="mm-section head-only" id="logsSection">
-        <article class="mm-panel">
-          <div class="mm-panel-header">
-            <h3>Activity Logs</h3>
-            <div class="mm-tools">
-              <input type="search" id="logSearch" placeholder="Search action/details/user">
-              <button type="button" class="mm-btn ghost" id="clearLogsBtn">Clear All Logs</button>
-            </div>
-          </div>
-          <div class="mm-table-wrap">
-            <table class="mm-table" id="logsTable">
-              <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>User</th>
-                  <th>Role</th>
-                  <th>Details</th>
-                  <th>Date/Time</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <p class="empty-state" id="logsEmpty">No activity logs yet.</p>
-        </article>
-      </section>
-
-      <section class="mm-section head-only" id="reportsSection">
-        <article class="mm-panel">
-          <div class="mm-panel-header">
-            <h3>Reports</h3>
-            <button class="mm-btn ghost" id="exportReportBtn">Export JSON</button>
-          </div>
-          <div class="mm-grid-2">
-            <div>
-              <h4>Uploads by Status</h4>
-              <ul id="reportStatusList" class="report-list"></ul>
-            </div>
-            <div>
-              <h4>Uploads by Team</h4>
-              <ul id="reportTeamList" class="report-list"></ul>
-            </div>
-            <div>
-              <h4>Members by Role</h4>
-              <ul id="reportMemberList" class="report-list"></ul>
-            </div>
-            <div>
-              <h4>Monthly Uploads</h4>
-              <ul id="reportMonthlyList" class="report-list"></ul>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section class="mm-section" id="profileSection">
-        <article class="mm-panel">
-          <div class="mm-panel-header"><h3>Profile Management</h3></div>
-          <form id="profileForm" class="mm-form-grid" enctype="multipart/form-data">
-            <label>Name<input type="text" name="name" id="profileName" required></label>
-            <label>Email<input type="email" name="email" id="profileEmail" required></label>
-            <label>Photo<input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp"></label>
-            <div class="mm-form-actions">
-              <button type="submit" class="mm-btn primary">Save Profile</button>
-            </div>
-          </form>
-
-          <form id="passwordForm" class="mm-form-grid compact">
-            <label>Current Password<input type="password" name="current_password" required></label>
-            <label>New Password<input type="password" name="new_password" minlength="8" required></label>
-            <div class="mm-form-actions"><button type="submit" class="mm-btn warning">Change Password</button></div>
-          </form>
-        </article>
-      </section>
-    </main>
-  </div>
-
-  <script src="/js/multimedia-dashboard.js?v=20260325i"></script>
+      window.location.replace(target);
+    })();
+  </script>
 </body>
 </html>
