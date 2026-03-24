@@ -17,17 +17,24 @@ const normalizeRole = (rawRole) => {
   return aliases[role] || role;
 };
 
-const parseBearerToken = (authHeader) => {
-  if (!authHeader) {
-    return { token: null, error: 'Authentication required' };
+const parseBearerToken = (req) => {
+  const authHeader = req.headers?.authorization || '';
+  if (authHeader) {
+    const [scheme, token] = String(authHeader).split(' ');
+    if (String(scheme || '').toLowerCase() === 'bearer' && token) {
+      return { token: token.trim(), error: null, source: 'header' };
+    }
+    return { token: null, error: 'Authentication required', source: 'header' };
   }
 
-  const [scheme, token] = String(authHeader).split(' ');
-  if (String(scheme || '').toLowerCase() !== 'bearer' || !token) {
-    return { token: null, error: 'Authentication required' };
+  // Optional fallback for direct browser open/download links.
+  const queryTokenRaw = req.query?.access_token || req.query?.token || '';
+  const queryToken = String(queryTokenRaw || '').trim();
+  if (queryToken) {
+    return { token: queryToken, error: null, source: 'query' };
   }
 
-  return { token: token.trim(), error: null };
+  return { token: null, error: 'Authentication required', source: 'none' };
 };
 
 const sessionUserToRequestUser = (sessionUser) => {
@@ -71,7 +78,7 @@ const requireAuth = (req, res, next) => {
     return next();
   }
 
-  const parsed = parseBearerToken(authHeader);
+  const parsed = parseBearerToken(req);
   if (parsed.error) {
     return res.status(401).json({ ok: false, error: parsed.error });
   }
@@ -91,6 +98,7 @@ const requireAuth = (req, res, next) => {
     const normalizedRole = normalizeRole(decoded?.role);
 
     console.log('[authMiddleware] decoded token payload:', {
+      tokenSource: parsed.source,
       sub: decoded?.sub || decoded?.id || null,
       username: decoded?.username || null,
       role: decoded?.role || null,

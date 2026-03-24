@@ -18,6 +18,10 @@ const assetsDir = path.join(__dirname, 'assets');
 const uploadsDir = path.join(__dirname, 'uploads');
 
 app.disable('x-powered-by');
+if (isProduction) {
+  // Required behind Render/Reverse proxy so secure cookies are accepted.
+  app.set('trust proxy', 1);
+}
 
 app.use(
   session({
