@@ -56,6 +56,15 @@ const normalizeBcryptHash = (hash) => {
   return value.startsWith('$2y$') ? `$2a$${value.slice(4)}` : value;
 };
 
+const normalizeRoleForFrontend = (rawRole) => {
+  const role = String(rawRole || '').toLowerCase();
+  if (!role) return '';
+  if (role === 'developer_head' || role === 'developer_member') return 'developer';
+  if (role === 'multimedia_head' || role === 'multimedia_member') return 'multimedia';
+  if (role.startsWith('officer')) return 'officer';
+  return role;
+};
+
 const isLikelyBcryptHash = (hash) => /^\$2[aby]\$\d\d\$/.test(String(hash || ''));
 
 const isDbError = (error) => {
@@ -198,6 +207,7 @@ const buildSessionUser = (row, map) => {
     id: getValue(row, [map.id, 'id', 'user_id'], null),
     username,
     name: getValue(row, [map.name, 'name', 'full_name'], username),
+    email: getValue(row, [map.email, 'email', 'user_email'], ''),
     role,
     team: getValue(row, [map.team, 'team', 'user_team'], getTeamFromRole(role)),
     profile_picture: getValue(row, [map.profilePicture, 'profile_picture', 'avatar'], null),
@@ -223,24 +233,15 @@ const verifyPassword = (plainText, storedPassword) => {
   return value === plainText;
 };
 
-const createOptionalJwt = (sessionUser) => {
-  if (authStrategy !== 'jwt') {
-    return null;
-  }
-
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    const error = new Error('JWT strategy is enabled but JWT_SECRET is missing.');
-    error.code = 'JWT_SECRET_MISSING';
-    throw error;
-  }
+const createLoginToken = (sessionUser) => {
+  const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'render-login-secret';
 
   let jwt;
   try {
-    // Loaded only when JWT mode is enabled.
+    // Lazy-load to keep startup light.
     jwt = require('jsonwebtoken');
   } catch (_error) {
-    const error = new Error('JWT strategy is enabled but jsonwebtoken package is not installed.');
+    const error = new Error('jsonwebtoken package is not installed.');
     error.code = 'JWT_PACKAGE_MISSING';
     throw error;
   }
@@ -334,7 +335,7 @@ const login = async (req, res) => {
 
     let token = null;
     try {
-      token = createOptionalJwt(sessionUser);
+      token = createLoginToken(sessionUser);
     } catch (jwtError) {
       console.error('[auth:login] jwt setup error', {
         code: jwtError.code || null,
@@ -347,6 +348,16 @@ const login = async (req, res) => {
       });
     }
 
+    const frontendRole = normalizeRoleForFrontend(sessionUser.role);
+    const frontendUser = {
+      id: sessionUser.id,
+      email: sessionUser.email || '',
+      role: frontendRole,
+      raw_role: sessionUser.role || null,
+      username: sessionUser.username || '',
+      name: sessionUser.name || '',
+    };
+
     console.log('[auth:login] success', {
       id: sessionUser.id,
       username: sessionUser.username,
@@ -357,9 +368,9 @@ const login = async (req, res) => {
     return res.json({
       ok: true,
       success: true,
-      user: sessionUser,
-      role: sessionUser.role || null,
-      token: token || null,
+      user: frontendUser,
+      role: frontendRole || null,
+      token: token,
       auth: authStrategy,
     });
   } catch (error) {

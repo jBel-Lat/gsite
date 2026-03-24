@@ -1,13 +1,11 @@
 require('dotenv').config();
 
-const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const { testConnection, getDbConfig, getAuthSchema, getDbType } = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const apiRoutes = require('./routes/api');
-const webRoutes = require('./routes/webRoutes');
 const { attachUser } = require('./middleware/auth');
 
 const app = express();
@@ -18,8 +16,6 @@ const sessionSecret = process.env.SESSION_SECRET || 'change-this-in-production';
 const publicDir = path.join(__dirname, 'public');
 const assetsDir = path.join(__dirname, 'assets');
 const uploadsDir = path.join(__dirname, 'uploads');
-const defaultIndex = path.join(publicDir, 'index.html');
-const faviconPath = path.join(publicDir, 'favicon.ico');
 
 app.disable('x-powered-by');
 
@@ -41,48 +37,23 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(attachUser);
-
-// Optional: avoid noisy 404 logs when favicon is missing.
-app.get('/favicon.ico', (_req, res) => {
-  if (fs.existsSync(faviconPath)) {
-    return res.sendFile(faviconPath);
-  }
-  return res.status(204).end();
-});
-
-app.use(
-  express.static(publicDir, {
-    index: false,
-    maxAge: isProduction ? '1h' : 0,
-  })
-);
-
-if (fs.existsSync(assetsDir)) {
-  app.use('/assets', express.static(assetsDir, { maxAge: isProduction ? '1d' : 0 }));
-}
-
-if (fs.existsSync(uploadsDir)) {
-  app.use('/uploads', express.static(uploadsDir, { maxAge: isProduction ? '1d' : 0 }));
-}
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/assets', express.static(assetsDir, { maxAge: isProduction ? '1d' : 0 }));
+app.use('/uploads', express.static(uploadsDir, { maxAge: isProduction ? '1d' : 0 }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
-app.use(webRoutes);
 
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
-    return next();
-  }
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-  if (path.extname(req.path)) {
-    return res.status(404).send('Not found');
-  }
+app.get('/admin/login', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pages', 'admin-login.html'));
+});
 
-  if (!fs.existsSync(defaultIndex)) {
-    return res.status(500).send('public/index.html not found');
-  }
-
-  return res.sendFile(defaultIndex);
+app.get('/superadmin/login', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pages', 'superadmin-login.html'));
 });
 
 app.use('/api', (_req, res) => {

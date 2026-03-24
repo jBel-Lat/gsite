@@ -26,59 +26,29 @@
     const errorText = document.getElementById('errorText');
 
     const roleRedirectMap = {
-      superadmin: '/superadmin/dashboard',
-      admin: '/admin/dashboard',
-      developer_head: '/developer/dashboard',
-      developer_member: '/developer/dashboard',
-      multimedia_head: '/multimedia/dashboard',
-      multimedia_member: '/multimedia/dashboard',
-      student: '/student/dashboard',
-      panelist: '/student/dashboard',
+      admin: '/pages/admin.html',
+      student: '/pages/student.html',
+      panelist: '/pages/student.html',
+      developer: '/pages/developer.html',
+      multimedia: '/pages/multimedia.html',
+      officer: '/pages/officer.html',
+      profile: '/pages/profile.html',
+      superadmin: '/pages/superadmin.html',
     };
 
-    const getToken = () => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+    const normalizeRole = (rawRole) => {
+      const role = String(rawRole || '').toLowerCase();
+      if (role === 'developer_head' || role === 'developer_member') return 'developer';
+      if (role === 'multimedia_head' || role === 'multimedia_member') return 'multimedia';
+      if (role.startsWith('officer')) return 'officer';
+      return role;
+    };
 
     const resolveDashboard = (role) => roleRedirectMap[String(role || '').toLowerCase()] || null;
-
-    const storeAuth = (data) => {
-      const user = data?.user || null;
-      const token = data?.token || null;
-      if (token) {
-        localStorage.setItem('auth_token', token);
-        sessionStorage.setItem('auth_token', token);
-      } else {
-        localStorage.removeItem('auth_token');
-        sessionStorage.removeItem('auth_token');
-      }
-      if (user) {
-        sessionStorage.setItem('auth_user', JSON.stringify(user));
-      }
-    };
 
     const showError = (message) => {
       errorText.textContent = message;
       errorText.style.display = 'block';
-    };
-
-    const autoRedirectIfLoggedIn = async () => {
-      try {
-        const headers = {};
-        const existingToken = getToken();
-        if (existingToken) {
-          headers.Authorization = `Bearer ${existingToken}`;
-        }
-        const response = await fetch('/api/auth/me', { headers });
-        const data = await response.json();
-        if (!response.ok || data?.ok === false || !data?.user) {
-          return;
-        }
-        const target = resolveDashboard(data.user.role);
-        if (target && window.location.pathname !== target) {
-          window.location.replace(target);
-        }
-      } catch (_error) {
-        // stay on login page
-      }
     };
 
     form.addEventListener('submit', async (event) => {
@@ -100,25 +70,29 @@
           throw new Error(data.error || data.message || 'Login failed');
         }
 
-        storeAuth(data);
-        const role = data.role || data?.user?.role || '';
+        const token = data?.token;
+        if (!token) {
+          throw new Error('Login succeeded but no token was returned.');
+        }
+
+        const role = normalizeRole(data.role || data?.user?.role || '');
         const target = resolveDashboard(role);
 
         if (!target) {
           throw new Error(`Unknown role "${role || 'none'}". Please contact administrator.`);
         }
 
-        if (window.location.pathname === target) {
-          return;
-        }
+        localStorage.setItem('token', token);
+        localStorage.setItem('role', role);
+        localStorage.setItem('user', JSON.stringify(data.user || {}));
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('role', role);
 
-        window.location.assign(target);
+        window.location.replace(target);
       } catch (error) {
         showError(error.message || 'Login failed');
       }
     });
-
-    autoRedirectIfLoggedIn();
   </script>
 </body>
 </html>
