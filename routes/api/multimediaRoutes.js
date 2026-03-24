@@ -1,7 +1,7 @@
 const express = require('express');
 const { asyncHandler } = require('../../utils/http');
 const { requireAuth } = require('../../middleware/authMiddleware');
-const { requireMultimediaAccess, requireMultimediaHead } = require('../../middleware/multimediaAccess');
+const { requireAnyRole, requireRole } = require('../../middleware/roleMiddleware');
 const {
   memberPhotoUpload,
   multimediaFileUpload,
@@ -23,7 +23,16 @@ const withUpload = (uploadMiddleware) => (req, res, next) => {
 };
 
 router.use(requireAuth);
-router.use(requireMultimediaAccess);
+router.use(
+  requireAnyRole([
+    'multimedia_head',
+    'photographer',
+    'videographer',
+    'graphic_designer',
+    'documentator',
+    'multimedia_member',
+  ])
+);
 router.use((req, _res, next) => {
   const authHeader = req.headers?.authorization || '';
   console.log('[api/multimedia] request', {
@@ -37,24 +46,24 @@ router.use((req, _res, next) => {
   next();
 });
 
-router.get('/dashboard/summary', requireMultimediaHead, asyncHandler(multimediaHeadController.getDashboardSummary));
+router.get('/dashboard/summary', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getDashboardSummary));
 
-router.get('/members', requireMultimediaHead, asyncHandler(multimediaHeadController.listMembers));
-router.get('/members/:id', requireMultimediaHead, asyncHandler(multimediaHeadController.getMember));
+router.get('/members', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listMembers));
+router.get('/members/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getMember));
 router.post(
   '/members',
-  requireMultimediaHead,
+  requireRole('multimedia_head'),
   withUpload(memberPhotoUpload.single('photo')),
   asyncHandler(multimediaHeadController.createMember)
 );
 router.put(
   '/members/:id',
-  requireMultimediaHead,
+  requireRole('multimedia_head'),
   withUpload(memberPhotoUpload.single('photo')),
   asyncHandler(multimediaHeadController.updateMember)
 );
-router.put('/members/:id/reset-password', requireMultimediaHead, asyncHandler(multimediaHeadController.resetMemberPassword));
-router.delete('/members/:id', requireMultimediaHead, asyncHandler(multimediaHeadController.deleteMember));
+router.put('/members/:id/reset-password', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.resetMemberPassword));
+router.delete('/members/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.deleteMember));
 
 router.get('/files', asyncHandler(multimediaHeadController.listFiles));
 router.get('/files/:id', asyncHandler(multimediaHeadController.getFile));
@@ -62,46 +71,46 @@ router.get('/files/:id/download', asyncHandler(multimediaHeadController.download
 router.get('/files/:id/view', asyncHandler(multimediaHeadController.viewFile));
 router.post(
   '/files',
-  requireMultimediaHead,
+  requireRole('multimedia_head'),
   withUpload(multimediaFileUpload.single('file')),
   asyncHandler(multimediaHeadController.createFile)
 );
 router.put(
   '/files/:id',
-  requireMultimediaHead,
+  requireRole('multimedia_head'),
   withUpload(multimediaFileUpload.single('file')),
   asyncHandler(multimediaHeadController.updateFile)
 );
 router.put('/files/:id/status', asyncHandler(multimediaHeadController.changeFileStatus));
-router.delete('/files/:id', requireMultimediaHead, asyncHandler(multimediaHeadController.deleteFile));
+router.delete('/files/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.deleteFile));
 
 router.get('/announcements', asyncHandler(multimediaHeadController.listAnnouncements));
 router.get('/announcements/:id', asyncHandler(multimediaHeadController.getAnnouncement));
 router.post(
   '/announcements',
-  requireMultimediaHead,
+  requireRole('multimedia_head'),
   withUpload(announcementImageUpload.single('image')),
   asyncHandler(multimediaHeadController.createAnnouncement)
 );
 router.put(
   '/announcements/:id',
-  requireMultimediaHead,
+  requireRole('multimedia_head'),
   withUpload(announcementImageUpload.single('image')),
   asyncHandler(multimediaHeadController.updateAnnouncement)
 );
-router.delete('/announcements/:id', requireMultimediaHead, asyncHandler(multimediaHeadController.deleteAnnouncement));
+router.delete('/announcements/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.deleteAnnouncement));
 
-router.get('/logs', requireMultimediaHead, asyncHandler(multimediaHeadController.listActivityLogs));
-router.get('/reports', requireMultimediaHead, asyncHandler(multimediaHeadController.getReports));
-router.get('/notifications', requireMultimediaHead, asyncHandler(multimediaHeadController.listNotifications));
+router.get('/logs', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listActivityLogs));
+router.get('/reports', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getReports));
+router.get('/notifications', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listNotifications));
 
-router.get('/profile', requireMultimediaHead, asyncHandler(multimediaHeadController.getProfile));
+router.get('/profile', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getProfile));
 router.put(
   '/profile',
-  requireMultimediaHead,
+  requireRole('multimedia_head'),
   withUpload(memberPhotoUpload.single('photo')),
   asyncHandler(multimediaHeadController.updateProfile)
 );
-router.put('/profile/password', requireMultimediaHead, asyncHandler(multimediaHeadController.changePassword));
+router.put('/profile/password', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.changePassword));
 
 module.exports = router;

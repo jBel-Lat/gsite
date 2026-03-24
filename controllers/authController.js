@@ -57,7 +57,16 @@ const normalizeBcryptHash = (hash) => {
 };
 
 const normalizeRoleForFrontend = (rawRole) => {
-  return String(rawRole || '').toLowerCase();
+  const role = String(rawRole || '').trim().toLowerCase().replace(/\s+/g, '_');
+  if (!role) return '';
+
+  const aliases = {
+    'multimedia-head': 'multimedia_head',
+    multimedia: 'multimedia_head',
+    media_head: 'multimedia_head',
+  };
+
+  return aliases[role] || role;
 };
 
 const isLikelyBcryptHash = (hash) => /^\$2[aby]\$\d\d\$/.test(String(hash || ''));
@@ -229,7 +238,12 @@ const verifyPassword = (plainText, storedPassword) => {
 };
 
 const createLoginToken = (sessionUser) => {
-  const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'render-login-secret';
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    const error = new Error('JWT_SECRET is missing in environment variables.');
+    error.code = 'JWT_SECRET_MISSING';
+    throw error;
+  }
 
   let jwt;
   try {
@@ -326,6 +340,7 @@ const login = async (req, res) => {
     }
 
     const sessionUser = buildSessionUser(user, map);
+    sessionUser.role = normalizeRoleForFrontend(sessionUser.role);
     req.session.user = sessionUser;
 
     let token = null;
@@ -357,6 +372,11 @@ const login = async (req, res) => {
       username: sessionUser.username,
       role: sessionUser.role,
       strategy: authStrategy,
+    });
+    console.log('[auth:login] response payload', {
+      success: true,
+      hasToken: Boolean(token),
+      userRole: frontendUser.role,
     });
 
     return res.json({

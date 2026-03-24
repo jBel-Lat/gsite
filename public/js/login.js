@@ -24,7 +24,18 @@
     profile: '/pages/profile.html',
   };
 
-  const normalizeRole = (rawRole) => String(rawRole || '').toLowerCase().trim();
+  const normalizeRole = (rawRole) => {
+    const role = String(rawRole || '').toLowerCase().trim().replace(/\s+/g, '_');
+    if (!role) return '';
+
+    const aliases = {
+      'multimedia-head': 'multimedia_head',
+      multimedia: 'multimedia_head',
+      media_head: 'multimedia_head',
+    };
+
+    return aliases[role] || role;
+  };
 
   const getRoleGroup = (role) => {
     if (['developer_head', 'developer_member', 'developer'].includes(role)) return 'developer';
@@ -68,7 +79,8 @@
 
       const token = data?.token;
       const user = data?.user || {};
-      const role = normalizeRole(data?.user?.role || data?.role || '');
+      const roleFromUser = normalizeRole(data?.user?.role || '');
+      const role = roleFromUser || normalizeRole(data?.role || '');
       const roleGroup = getRoleGroup(role);
       const target = resolveDashboard(role);
 
@@ -79,16 +91,16 @@
         throw new Error(`Unknown role "${role || 'none'}".`);
       }
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('role', role);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('role', roleFromUser || role);
       localStorage.setItem('role_group', roleGroup);
       localStorage.setItem('user', JSON.stringify(user));
-      sessionStorage.setItem('token', token);
-      sessionStorage.setItem('role', role);
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('role', roleFromUser || role);
       sessionStorage.setItem('role_group', roleGroup);
 
-      console.log('[login] saved token:', token);
-      console.log('[login] saved role:', role);
+      console.log('[login] saved token:', data.token);
+      console.log('[login] saved role:', roleFromUser || role);
       console.log('[login] saved role_group:', roleGroup);
 
       window.location.replace(target);

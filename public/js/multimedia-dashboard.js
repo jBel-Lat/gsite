@@ -1,6 +1,20 @@
 (function () {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  const role = String(localStorage.getItem('role') || sessionStorage.getItem('role') || '').toLowerCase();
+  const normalizeRole = (rawRole) => {
+    const role = String(rawRole || '').toLowerCase().trim().replace(/\s+/g, '_');
+    if (!role) return '';
+
+    const aliases = {
+      'multimedia-head': 'multimedia_head',
+      multimedia: 'multimedia_head',
+      media_head: 'multimedia_head',
+    };
+
+    return aliases[role] || role;
+  };
+
+  const getStoredToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+  const token = getStoredToken();
+  const role = normalizeRole(localStorage.getItem('role') || sessionStorage.getItem('role') || '');
   const roleGroup = String(localStorage.getItem('role_group') || sessionStorage.getItem('role_group') || '').toLowerCase();
 
   const multimediaRoles = [
@@ -146,10 +160,11 @@
   };
 
   const apiFetch = async (url, options = {}) => {
+    const authToken = getStoredToken();
     const headers = new Headers(options.headers || {});
     headers.set('Accept', 'application/json');
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    if (authToken) {
+      headers.set('Authorization', `Bearer ${authToken}`);
     }
 
     const isFormData = options.body instanceof FormData;
@@ -162,7 +177,8 @@
     console.log('[multimedia-dashboard] request', {
       method: options.method || 'GET',
       url: requestUrl,
-      hasToken: Boolean(token),
+      hasToken: Boolean(authToken),
+      token: authToken || null,
       role: state.role,
     });
 
