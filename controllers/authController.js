@@ -1,10 +1,11 @@
 const bcrypt = require('bcryptjs');
-const { pool, getAuthSchema } = require('../config/database');
+const { pool, getAuthSchema, getDbType, getPublicDbConfig } = require('../config/database');
 const { cleanText } = require('../utils/http');
 const { getTeamFromRole } = require('../utils/roles');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const authStrategy = String(process.env.AUTH_STRATEGY || 'session').toLowerCase();
+const dbType = typeof getDbType === 'function' ? getDbType() : 'mysql';
 
 const defaultSchema = {
   table: 'users',
@@ -40,6 +41,13 @@ const schema = {
   profilePicture: asSafeIdentifier(rawSchema.profilePicture, defaultSchema.profilePicture),
 };
 
+const quoteIdent = (identifier) => {
+  if (dbType === 'postgres') {
+    return `"${String(identifier).replace(/"/g, '""')}"`;
+  }
+  return `\`${String(identifier).replace(/`/g, '``')}\``;
+};
+
 let cachedColumns = null;
 let columnsCacheExpiresAt = 0;
 
@@ -62,11 +70,30 @@ const isDbError = (error) => {
 
 const mapDbError = (error) => {
   const code = error?.code || '';
+  if (code === '28P01' || code === '28000') {
+    return { status: 500, message: 'Database authentication failed. Check DB_USER/DB_PASSWORD.', code };
+  }
+  if (code === '3D000') {
+    return { status: 500, message: 'Database not found. Check DB_NAME.', code };
+  }
+  if (code === '42P01') {
+    return { status: 500, message: `Required table is missing. Expected table: ${schema.table}.`, code };
+  }
+  if (code === '42703') {
+    return {
+      status: 500,
+      message: `Table schema mismatch. Check columns in ${schema.table} and auth column settings.`,
+      code,
+    };
+  }
+  if (code === '23505') {
+    return { status: 409, message: 'Username or email already exists.', code };
+  }
   if (code === 'ER_ACCESS_DENIED_ERROR') {
-    return { status: 500, message: 'Database authentication failed. Check DB username/password.', code };
+    return { status: 500, message: 'Database authentication failed. Check DB_USER/DB_PASSWORD.', code };
   }
   if (code === 'ER_BAD_DB_ERROR') {
-    return { status: 500, message: 'Database not found. Check DB_NAME/MYSQLDATABASE.', code };
+    return { status: 500, message: 'Database not found. Check DB_NAME.', code };
   }
   if (code === 'ER_NO_SUCH_TABLE') {
     return { status: 500, message: `Required table is missing. Expected table: ${schema.table}.`, code };
@@ -98,11 +125,14 @@ const sendDbError = (res, error, context) => {
     message: error?.message || null,
     sqlMessage: error?.sqlMessage || null,
     sqlState: error?.sqlState || null,
+    dbType,
   });
+  console.error(error);
   return res.status(mapped.status).json({
     ok: false,
     error: mapped.message,
     code: mapped.code,
+    debug: error?.message || null,
   });
 };
 
@@ -130,8 +160,19 @@ const getUsersColumns = async () => {
     return cachedColumns;
   }
 
-  const [rows] = await pool.query(`SHOW COLUMNS FROM \`${schema.table}\``);
-  const columns = new Set(rows.map((row) => String(row.Field)));
+  let rows = [];
+  if (dbType === 'postgres') {
+    [rows] = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ?`,
+      [schema.table]
+    );
+  } else {
+    [rows] = await pool.query(`SHOW COLUMNS FROM ${quoteIdent(schema.table)}`);
+  }
+
+  const columns = new Set(
+    rows.map((row) => String(row.Field || row.column_name || row.COLUMN_NAME || '')).filter(Boolean)
+  );
   cachedColumns = columns;
   columnsCacheExpiresAt = now + 60_000;
   return columns;
@@ -251,12 +292,12 @@ const login = async (req, res) => {
     }
 
     const whereClause = map.email
-      ? `\`${map.username}\` = ? OR \`${map.email}\` = ?`
-      : `\`${map.username}\` = ?`;
+      ? `${quoteIdent(map.username)} = ? OR ${quoteIdent(map.email)} = ?`
+      : `${quoteIdent(map.username)} = ?`;
     const params = map.email ? [loginInput, loginInput] : [loginInput];
 
     const [rows] = await pool.query(
-      `SELECT * FROM \`${schema.table}\` WHERE ${whereClause} LIMIT 1`,
+      `SELECT * FROM ${quoteIdent(schema.table)} WHERE ${whereClause} LIMIT 1`,
       params
     );
 
@@ -324,13 +365,11 @@ const login = async (req, res) => {
       return sendDbError(res, error, 'login');
     }
 
-    console.error('[auth:login] unexpected error', {
-      message: error.message,
-      stack: isProduction ? undefined : error.stack,
-    });
+    console.error('[auth:login] unexpected error', error);
     return res.status(500).json({
       ok: false,
-      error: isProduction ? 'Internal server error' : `Login failed: ${error.message}`,
+      error: `Login failed: ${error.message}`,
+      debug: error.message,
     });
   }
 };
@@ -373,12 +412,12 @@ const register = async (req, res) => {
     }
 
     const duplicateWhere = map.email
-      ? `\`${map.username}\` = ? OR \`${map.email}\` = ?`
-      : `\`${map.username}\` = ?`;
+      ? `${quoteIdent(map.username)} = ? OR ${quoteIdent(map.email)} = ?`
+      : `${quoteIdent(map.username)} = ?`;
     const duplicateParams = map.email ? [username, email] : [username];
 
     const [existingRows] = await pool.query(
-      `SELECT \`${map.username}\`${map.email ? `, \`${map.email}\`` : ''} FROM \`${schema.table}\` WHERE ${duplicateWhere} LIMIT 1`,
+      `SELECT ${quoteIdent(map.username)}${map.email ? `, ${quoteIdent(map.email)}` : ''} FROM ${quoteIdent(schema.table)} WHERE ${duplicateWhere} LIMIT 1`,
       duplicateParams
     );
     if (existingRows.length) {
@@ -409,8 +448,8 @@ const register = async (req, res) => {
     }
 
     const placeholders = insertColumns.map(() => '?').join(', ');
-    const columnSql = insertColumns.map((column) => `\`${column}\``).join(', ');
-    await pool.query(`INSERT INTO \`${schema.table}\` (${columnSql}) VALUES (${placeholders})`, insertValues);
+    const columnSql = insertColumns.map((column) => quoteIdent(column)).join(', ');
+    await pool.query(`INSERT INTO ${quoteIdent(schema.table)} (${columnSql}) VALUES (${placeholders})`, insertValues);
 
     return res.status(201).json({
       ok: true,
@@ -449,7 +488,7 @@ const me = async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT * FROM \`${schema.table}\` WHERE \`${map.id}\` = ? LIMIT 1`,
+      `SELECT * FROM ${quoteIdent(schema.table)} WHERE ${quoteIdent(map.id)} = ? LIMIT 1`,
       [req.session.user.id]
     );
 
@@ -502,9 +541,34 @@ const logout = async (req, res) => {
   }
 };
 
+const dbDebug = async (_req, res) => {
+  const publicConfig = typeof getPublicDbConfig === 'function' ? getPublicDbConfig() : {};
+  let connection_ok = false;
+  let connection_error = null;
+
+  try {
+    await pool.query('SELECT 1 AS ok');
+    connection_ok = true;
+  } catch (error) {
+    console.error('[auth:db-debug] connection test failed', error);
+    connection_error = error?.message || 'Connection test failed';
+  }
+
+  return res.json({
+    db_type: publicConfig.db_type || dbType,
+    host: publicConfig.host || process.env.DB_HOST || null,
+    port: publicConfig.port || process.env.DB_PORT || null,
+    database: publicConfig.database || process.env.DB_NAME || null,
+    user: publicConfig.user || process.env.DB_USER || null,
+    connection_ok,
+    ...(connection_error ? { connection_error } : {}),
+  });
+};
+
 module.exports = {
   login,
   register,
   logout,
   me,
+  dbDebug,
 };

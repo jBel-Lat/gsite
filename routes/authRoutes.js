@@ -20,6 +20,7 @@ router.use((req, _res, next) => {
 router.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'auth', message: 'Auth routes are registered' });
 });
+router.get('/db-debug', asyncHandler(authController.dbDebug));
 
 router.post('/login', asyncHandler(authController.login));
 router.post('/register', asyncHandler(authController.register));

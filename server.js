@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
-const { testConnection, getDbConfig, getAuthSchema } = require('./config/database');
+const { testConnection, getDbConfig, getAuthSchema, getDbType } = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const apiRoutes = require('./routes/api');
 const webRoutes = require('./routes/webRoutes');
@@ -114,11 +114,13 @@ app.use((error, req, res, next) => {
 app.listen(PORT, () => {
   const dbConfig = getDbConfig();
   const authSchema = getAuthSchema();
+  const dbType = typeof getDbType === 'function' ? getDbType() : 'mysql';
 
   console.log(`Server listening on port ${PORT}`);
   console.log('API base: /api');
   console.log(`Public directory: ${publicDir}`);
-  console.log('Auth routes: GET /api/auth/health, POST /api/auth/login, POST /api/auth/register, GET /api/auth/me, POST /api/auth/logout');
+  console.log('Auth routes: GET /api/auth/health, GET /api/auth/db-debug, POST /api/auth/login, POST /api/auth/register, GET /api/auth/me, POST /api/auth/logout');
+  console.log('Database type:', dbType);
   console.log('DB env summary:', {
     host: dbConfig.host,
     port: Number(dbConfig.port),
