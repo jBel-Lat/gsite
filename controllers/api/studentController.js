@@ -5,6 +5,121 @@ const isUnknownColumnError = (error) => {
   return error && (error.code === 'ER_BAD_FIELD_ERROR' || error.errno === 1054);
 };
 
+const isMissingTableError = (error) => {
+  return error && (error.code === 'ER_NO_SUCH_TABLE' || error.errno === 1146);
+};
+
+const getTeamPosts = async (team) => {
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT p.id, p.title, p.details, p.image, p.created_at,
+               u.name AS author_name, u.profile_picture AS author_image
+        FROM posts p
+        LEFT JOIN users u ON p.author_id = u.id
+        WHERE p.team = ?
+          AND (p.auto_hide_at IS NULL OR p.auto_hide_at > NOW())
+        ORDER BY p.created_at DESC
+      `,
+      [team]
+    );
+    return rows;
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return [];
+    }
+    if (!isUnknownColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT p.id, p.title, p.details, p.image, p.created_at,
+               COALESCE(u.name, 'Unknown') AS author_name,
+               COALESCE(u.profile_picture, 'default.png') AS author_image
+        FROM posts p
+        LEFT JOIN users u ON p.author_id = u.id
+        WHERE p.team = ?
+        ORDER BY p.created_at DESC
+      `,
+      [team]
+    );
+    return rows;
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return [];
+    }
+    if (!isUnknownColumnError(error)) {
+      throw error;
+    }
+  }
+
+  // Final compatibility fallback when legacy schema lacks team/author/profile columns.
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT p.id,
+               COALESCE(p.title, 'Untitled') AS title,
+               COALESCE(p.details, '') AS details,
+               NULL AS image,
+               p.created_at,
+               'Unknown' AS author_name,
+               'default.png' AS author_image
+        FROM posts p
+        ORDER BY p.created_at DESC
+        LIMIT 30
+      `
+    );
+    return rows;
+  } catch (error) {
+    if (isMissingTableError(error) || isUnknownColumnError(error)) {
+      return [];
+    }
+    throw error;
+  }
+};
+
+const getEvents = async () => {
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT e.id, e.title, e.start_date, e.end_date, e.participant_limit,
+               (SELECT COUNT(*) FROM event_registrations er WHERE er.event_id = e.id) AS reg_count
+        FROM events e
+        WHERE e.end_date >= DATE(NOW())
+        ORDER BY e.start_date ASC
+      `
+    );
+    return rows;
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return [];
+    }
+    if (!isUnknownColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT e.id, e.title, e.start_date, e.end_date,
+               NULL AS participant_limit, 0 AS reg_count
+        FROM events e
+        ORDER BY e.start_date ASC
+      `
+    );
+    return rows;
+  } catch (error) {
+    if (isMissingTableError(error) || isUnknownColumnError(error)) {
+      return [];
+    }
+    throw error;
+  }
+};
+
 const getCommentsForDashboard = async () => {
   try {
     const [comments] = await pool.query(
@@ -16,18 +131,27 @@ const getCommentsForDashboard = async () => {
     );
     return comments;
   } catch (error) {
+    if (isMissingTableError(error)) {
+      return [];
+    }
     if (!isUnknownColumnError(error)) {
       throw error;
     }
-
-    const [comments] = await pool.query(
-      `
-        SELECT post_id, commenter_name AS author_name, comment, created_at
-        FROM post_comments
-        ORDER BY created_at ASC
-      `
-    );
-    return comments;
+    try {
+      const [comments] = await pool.query(
+        `
+          SELECT post_id, commenter_name AS author_name, comment, created_at
+          FROM post_comments
+          ORDER BY created_at ASC
+        `
+      );
+      return comments;
+    } catch (fallbackError) {
+      if (isMissingTableError(fallbackError) || isUnknownColumnError(fallbackError)) {
+        return [];
+      }
+      throw fallbackError;
+    }
   }
 };
 
@@ -49,55 +173,42 @@ const insertComment = async ({ postId, name, comment }) => {
 };
 
 const dashboardData = async (_req, res) => {
-  const multimediaSql = `
-    SELECT p.id, p.title, p.details, p.image, p.created_at,
-           u.name AS author_name, u.profile_picture AS author_image
-    FROM posts p
-    JOIN users u ON p.author_id = u.id
-    WHERE p.team = 'multimedia'
-      AND (p.auto_hide_at IS NULL OR p.auto_hide_at > NOW())
-    ORDER BY p.created_at DESC
-  `;
+  try {
+    const [multimediaPosts, developerPosts, events, comments] = await Promise.all([
+      getTeamPosts('multimedia'),
+      getTeamPosts('developer'),
+      getEvents(),
+      getCommentsForDashboard(),
+    ]);
 
-  const developerSql = `
-    SELECT p.id, p.title, p.details, p.image, p.created_at,
-           u.name AS author_name, u.profile_picture AS author_image
-    FROM posts p
-    JOIN users u ON p.author_id = u.id
-    WHERE p.team = 'developer'
-      AND (p.auto_hide_at IS NULL OR p.auto_hide_at > NOW())
-    ORDER BY p.created_at DESC
-  `;
+    const groupedComments = comments.reduce((acc, item) => {
+      const key = String(item.post_id);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {});
 
-  const eventsSql = `
-    SELECT e.id, e.title, e.start_date, e.end_date, e.participant_limit,
-           (SELECT COUNT(*) FROM event_registrations er WHERE er.event_id = e.id) AS reg_count
-    FROM events e
-    WHERE e.end_date >= DATE(NOW())
-    ORDER BY e.start_date ASC
-  `;
+    res.json({
+      ok: true,
+      multimedia_posts: multimediaPosts,
+      developer_posts: developerPosts,
+      comments: groupedComments,
+      events,
+    });
+  } catch (error) {
+    // Do not break the student page due to partial/legacy schema issues.
+    if (isMissingTableError(error) || isUnknownColumnError(error)) {
+      return res.json({
+        ok: true,
+        multimedia_posts: [],
+        developer_posts: [],
+        comments: {},
+        events: [],
+      });
+    }
 
-  const [[multimediaPosts], [developerPosts], [events], comments] = await Promise.all([
-    pool.query(multimediaSql),
-    pool.query(developerSql),
-    pool.query(eventsSql),
-    getCommentsForDashboard(),
-  ]);
-
-  const groupedComments = comments.reduce((acc, item) => {
-    const key = String(item.post_id);
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
-
-  res.json({
-    ok: true,
-    multimedia_posts: multimediaPosts,
-    developer_posts: developerPosts,
-    comments: groupedComments,
-    events,
-  });
+    throw error;
+  }
 };
 
 const postComment = async (req, res) => {
@@ -168,4 +279,3 @@ module.exports = {
   postComment,
   registerEvent,
 };
-

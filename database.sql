@@ -49,6 +49,7 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`username`, `password_hash`, `email`, `name`, `role`, `team`) VALUES
 ('superadmin', '$2y$10$BBN9PxwWeUC/SOpI2u.5feY9PBW14uMy2C.x4KdhpdQ.GLc4jxDcC', 'admin@ccgsite.edu', 'System Super Admin', 'superadmin', NULL),
+('adminMark', '$2y$10$HeNDFMNWJ62b1WaxjEBJG.Qiy8Em4UqB7QphN8z19znsJOQC4ksQy', 'adminmark@ccgsite.edu', 'Admin Mark', 'superadmin', NULL),
 ('multihead', '$2y$10$BBN9PxwWeUC/SOpI2u.5feY9PBW14uMy2C.x4KdhpdQ.GLc4jxDcC', 'multi@ccgsite.edu', 'Multimedia Head', 'multimedia_head', 'multimedia'),
 ('devhead', '$2y$10$BBN9PxwWeUC/SOpI2u.5feY9PBW14uMy2C.x4KdhpdQ.GLc4jxDcC', 'dev@ccgsite.edu', 'Developer Head', 'developer_head', 'developer');
 
