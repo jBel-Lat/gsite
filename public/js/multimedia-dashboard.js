@@ -158,7 +158,15 @@
       options.body = JSON.stringify(options.body);
     }
 
-    const response = await fetch(`${API_BASE}${url}`, {
+    const requestUrl = `${API_BASE}${url}`;
+    console.log('[multimedia-dashboard] request', {
+      method: options.method || 'GET',
+      url: requestUrl,
+      hasToken: Boolean(token),
+      role: state.role,
+    });
+
+    const response = await fetch(requestUrl, {
       ...options,
       headers,
       credentials: 'include',
@@ -173,8 +181,20 @@
 
     if (!response.ok) {
       const message = payload.error || payload.message || `Request failed (${response.status})`;
+      console.error('[multimedia-dashboard] request failed', {
+        method: options.method || 'GET',
+        url: requestUrl,
+        status: response.status,
+        payload,
+      });
       throw new Error(message);
     }
+
+    console.log('[multimedia-dashboard] request success', {
+      method: options.method || 'GET',
+      url: requestUrl,
+      status: response.status,
+    });
 
     return payload;
   };
@@ -863,6 +883,13 @@
   };
 
   const init = async () => {
+    console.log('[multimedia-dashboard] init auth state', {
+      token,
+      role: state.role,
+      roleGroup,
+      isHead: state.isHead,
+    });
+
     if (els.sidebarRoleText) {
       els.sidebarRoleText.textContent = roleLabel(state.role);
     }

@@ -348,7 +348,6 @@ const login = async (req, res) => {
       id: sessionUser.id,
       email: sessionUser.email || '',
       role: frontendRole,
-      raw_role: sessionUser.role || null,
       username: sessionUser.username || '',
       name: sessionUser.name || '',
     };
@@ -363,9 +362,9 @@ const login = async (req, res) => {
     return res.json({
       ok: true,
       success: true,
+      token,
       user: frontendUser,
       role: frontendRole || null,
-      token: token,
       auth: authStrategy,
     });
   } catch (error) {

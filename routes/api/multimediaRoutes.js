@@ -1,6 +1,6 @@
 const express = require('express');
 const { asyncHandler } = require('../../utils/http');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth } = require('../../middleware/authMiddleware');
 const { requireMultimediaAccess, requireMultimediaHead } = require('../../middleware/multimediaAccess');
 const {
   memberPhotoUpload,
@@ -24,6 +24,18 @@ const withUpload = (uploadMiddleware) => (req, res, next) => {
 
 router.use(requireAuth);
 router.use(requireMultimediaAccess);
+router.use((req, _res, next) => {
+  const authHeader = req.headers?.authorization || '';
+  console.log('[api/multimedia] request', {
+    method: req.method,
+    path: req.originalUrl || req.url,
+    hasAuthHeader: Boolean(authHeader),
+    authHeaderPreview: authHeader ? `${String(authHeader).slice(0, 32)}...` : null,
+    userId: req.user?.id || null,
+    role: req.user?.role || null,
+  });
+  next();
+});
 
 router.get('/dashboard/summary', requireMultimediaHead, asyncHandler(multimediaHeadController.getDashboardSummary));
 

@@ -61,6 +61,7 @@
       });
 
       const data = await response.json().catch(() => ({}));
+      console.log('[login] response payload:', data);
       if (!response.ok || data.success !== true) {
         throw new Error(data.error || data.message || 'Login failed');
       }
@@ -85,6 +86,10 @@
       sessionStorage.setItem('token', token);
       sessionStorage.setItem('role', role);
       sessionStorage.setItem('role_group', roleGroup);
+
+      console.log('[login] saved token:', token);
+      console.log('[login] saved role:', role);
+      console.log('[login] saved role_group:', roleGroup);
 
       window.location.replace(target);
     } catch (error) {
