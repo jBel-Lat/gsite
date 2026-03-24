@@ -59,7 +59,7 @@ const getDbConfig = () => {
   const fromUrl = parseDatabaseUrl();
   const defaultPort = dbType === 'postgres' ? 5432 : 3306;
   const defaultUser = dbType === 'postgres' ? 'postgres' : 'root';
-  const defaultDatabase = dbType === 'postgres' ? 'postgres' : 'cc_gsite_db';
+  const defaultDatabase = dbType === 'postgres' ? 'postgres' : 'railway';
 
   return {
     host:
@@ -168,6 +168,7 @@ const createPool = () => {
     user: config.user,
     password: config.password,
     database: config.database,
+    ssl: config.ssl ? { rejectUnauthorized: false } : undefined,
     waitForConnections: true,
     connectionLimit: Number(process.env.DB_POOL_SIZE || 10),
     queueLimit: 0,

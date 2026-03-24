@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const defaultSessionSecret = 'change-this-in-production';
+let jwtFallbackWarned = false;
 
 const normalizeRole = (rawRole) => {
   const role = String(rawRole || '').trim().toLowerCase().replace(/\s+/g, '_');
@@ -28,6 +30,20 @@ const parseBearerToken = (authHeader) => {
   return { token: token.trim(), error: null };
 };
 
+const resolveJwtSecret = () => {
+  const jwtSecret = String(process.env.JWT_SECRET || '').trim();
+  if (jwtSecret) {
+    return { secret: jwtSecret, source: 'JWT_SECRET' };
+  }
+
+  const sessionSecret = String(process.env.SESSION_SECRET || '').trim();
+  if (sessionSecret) {
+    return { secret: sessionSecret, source: 'SESSION_SECRET' };
+  }
+
+  return { secret: defaultSessionSecret, source: 'SESSION_SECRET_DEFAULT' };
+};
+
 const requireAuth = (req, res, next) => {
   const authHeader = req.headers?.authorization || '';
 
@@ -38,14 +54,18 @@ const requireAuth = (req, res, next) => {
     return res.status(401).json({ ok: false, error: parsed.error });
   }
 
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    console.error('[authMiddleware] JWT_SECRET is missing');
-    return res.status(500).json({ ok: false, error: 'Server JWT secret is not configured' });
+  const resolved = resolveJwtSecret();
+  if ((resolved.source === 'SESSION_SECRET' || resolved.source === 'SESSION_SECRET_DEFAULT') && !jwtFallbackWarned) {
+    jwtFallbackWarned = true;
+    const mode =
+      resolved.source === 'SESSION_SECRET_DEFAULT'
+        ? 'default insecure SESSION_SECRET fallback'
+        : 'SESSION_SECRET fallback';
+    console.warn(`[authMiddleware] JWT_SECRET missing; using ${mode} for token verification. Set JWT_SECRET in production.`);
   }
 
   try {
-    const decoded = jwt.verify(parsed.token, jwtSecret);
+    const decoded = jwt.verify(parsed.token, resolved.secret);
     const normalizedRole = normalizeRole(decoded?.role);
 
     console.log('[authMiddleware] decoded token payload:', {

@@ -1,4 +1,5 @@
 const express = require('express');
+const pool = require('../../config/db');
 const { asyncHandler } = require('../../utils/http');
 const studentRoutes = require('./studentRoutes');
 const adminRoutes = require('./adminRoutes');

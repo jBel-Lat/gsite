@@ -6,6 +6,8 @@ const { getTeamFromRole } = require('../utils/roles');
 const isProduction = process.env.NODE_ENV === 'production';
 const authStrategy = String(process.env.AUTH_STRATEGY || 'session').toLowerCase();
 const dbType = typeof getDbType === 'function' ? getDbType() : 'mysql';
+const defaultSessionSecret = 'change-this-in-production';
+let jwtFallbackWarned = false;
 
 const defaultSchema = {
   table: 'users',
@@ -237,12 +239,29 @@ const verifyPassword = (plainText, storedPassword) => {
   return value === plainText;
 };
 
+const resolveJwtSecret = () => {
+  const jwtSecret = String(process.env.JWT_SECRET || '').trim();
+  if (jwtSecret) {
+    return { secret: jwtSecret, source: 'JWT_SECRET' };
+  }
+
+  const sessionSecret = String(process.env.SESSION_SECRET || '').trim();
+  if (sessionSecret) {
+    return { secret: sessionSecret, source: 'SESSION_SECRET' };
+  }
+
+  return { secret: defaultSessionSecret, source: 'SESSION_SECRET_DEFAULT' };
+};
+
 const createLoginToken = (sessionUser) => {
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    const error = new Error('JWT_SECRET is missing in environment variables.');
-    error.code = 'JWT_SECRET_MISSING';
-    throw error;
+  const resolved = resolveJwtSecret();
+  if ((resolved.source === 'SESSION_SECRET' || resolved.source === 'SESSION_SECRET_DEFAULT') && !jwtFallbackWarned) {
+    jwtFallbackWarned = true;
+    const mode =
+      resolved.source === 'SESSION_SECRET_DEFAULT'
+        ? 'default insecure SESSION_SECRET fallback'
+        : 'SESSION_SECRET fallback';
+    console.warn(`[auth] JWT_SECRET missing; using ${mode} for token signing. Set JWT_SECRET in production.`);
   }
 
   let jwt;
@@ -257,7 +276,7 @@ const createLoginToken = (sessionUser) => {
 
   return jwt.sign(
     { sub: sessionUser.id, role: sessionUser.role, username: sessionUser.username },
-    jwtSecret,
+    resolved.secret,
     { expiresIn: process.env.JWT_EXPIRES_IN || '12h' }
   );
 };
@@ -596,6 +615,7 @@ const dbDebug = async (_req, res) => {
     port: publicConfig.port || process.env.DB_PORT || null,
     database: publicConfig.database || process.env.DB_NAME || null,
     user: publicConfig.user || process.env.DB_USER || null,
+    jwt_configured: Boolean(resolveJwtSecret().secret),
     connection_ok,
     ...(connection_error ? { connection_error } : {}),
   });
