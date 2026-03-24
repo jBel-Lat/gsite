@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/assets/css/style.css">
 </head>
-<body data-login="true">
+<body data-login="true" data-login-scope="admin">
   <div class="main-content full-width" style="margin:0; min-height:100vh; display:grid; place-items:center; padding:20px;">
     <div class="panel" style="width:min(420px,100%);">
       <div class="panel-header"><h3 class="panel-title">Admin Login</h3></div>
@@ -21,78 +21,6 @@
       <p style="margin-top:12px;"><a href="/superadmin/login">Login as superadmin</a></p>
     </div>
   </div>
-  <script>
-    const form = document.getElementById('loginForm');
-    const errorText = document.getElementById('errorText');
-
-    const roleRedirectMap = {
-      admin: '/pages/admin.html',
-      student: '/pages/student.html',
-      panelist: '/pages/student.html',
-      developer: '/pages/developer.html',
-      multimedia: '/pages/multimedia.html',
-      officer: '/pages/officer.html',
-      profile: '/pages/profile.html',
-      superadmin: '/pages/superadmin.html',
-    };
-
-    const normalizeRole = (rawRole) => {
-      const role = String(rawRole || '').toLowerCase();
-      if (role === 'developer_head' || role === 'developer_member') return 'developer';
-      if (role === 'multimedia_head' || role === 'multimedia_member') return 'multimedia';
-      if (role.startsWith('officer')) return 'officer';
-      return role;
-    };
-
-    const resolveDashboard = (role) => roleRedirectMap[String(role || '').toLowerCase()] || null;
-
-    const showError = (message) => {
-      errorText.textContent = message;
-      errorText.style.display = 'block';
-    };
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      errorText.style.display = 'none';
-
-      const payload = Object.fromEntries(new FormData(form).entries());
-      payload.scope = 'admin';
-
-      try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || data.ok === false || data.success === false) {
-          throw new Error(data.error || data.message || 'Login failed');
-        }
-
-        const token = data?.token;
-        if (!token) {
-          throw new Error('Login succeeded but no token was returned.');
-        }
-
-        const role = normalizeRole(data.role || data?.user?.role || '');
-        const target = resolveDashboard(role);
-
-        if (!target) {
-          throw new Error(`Unknown role "${role || 'none'}". Please contact administrator.`);
-        }
-
-        localStorage.setItem('token', token);
-        localStorage.setItem('role', role);
-        localStorage.setItem('user', JSON.stringify(data.user || {}));
-        sessionStorage.setItem('token', token);
-        sessionStorage.setItem('role', role);
-
-        window.location.replace(target);
-      } catch (error) {
-        showError(error.message || 'Login failed');
-      }
-    });
-  </script>
+  <script src="/js/login.js"></script>
 </body>
 </html>
