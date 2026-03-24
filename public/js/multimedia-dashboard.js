@@ -49,6 +49,11 @@
     reports: null,
     notifications: [],
   };
+  const realtime = {
+    source: null,
+    reconnectTimer: null,
+    pollTimer: null,
+  };
 
   const API_BASE = '/api/multimedia';
 
@@ -140,6 +145,17 @@
       timer = setTimeout(() => fn(...args), delay);
     };
   };
+
+  const refreshFromRealtime = debounce(async () => {
+    try {
+      await loadFiles();
+      if (state.isHead) {
+        await renderSummary();
+      }
+    } catch (error) {
+      console.error('[multimedia-dashboard] realtime refresh failed', error);
+    }
+  }, 400);
 
   const clearNotice = () => {
     if (!els.noticePanel) return;
@@ -292,6 +308,7 @@
 
     if (els.logoutBtn) {
       els.logoutBtn.addEventListener('click', async () => {
+        stopRealtimeSync();
         localStorage.removeItem('token');
         localStorage.removeItem('role');
         localStorage.removeItem('role_group');
@@ -307,6 +324,84 @@
         window.location.replace('/');
       });
     }
+  };
+
+  const stopRealtimeSync = () => {
+    if (realtime.source) {
+      realtime.source.close();
+      realtime.source = null;
+    }
+    if (realtime.reconnectTimer) {
+      clearTimeout(realtime.reconnectTimer);
+      realtime.reconnectTimer = null;
+    }
+    if (realtime.pollTimer) {
+      clearInterval(realtime.pollTimer);
+      realtime.pollTimer = null;
+    }
+  };
+
+  const startPollingFallback = () => {
+    if (realtime.pollTimer) return;
+    realtime.pollTimer = setInterval(() => {
+      refreshFromRealtime();
+    }, 15000);
+    console.log('[multimedia-dashboard] fallback polling started');
+  };
+
+  const startRealtimeSync = () => {
+    const authToken = getStoredToken();
+    if (!authToken) return;
+
+    if (typeof EventSource === 'undefined') {
+      startPollingFallback();
+      return;
+    }
+
+    const streamUrl = `${API_BASE}/stream?access_token=${encodeURIComponent(authToken)}`;
+    const source = new EventSource(streamUrl);
+    realtime.source = source;
+
+    const onRealtimeFileEvent = (event) => {
+      let payload = {};
+      try {
+        payload = JSON.parse(event.data || '{}');
+      } catch (_error) {
+        payload = {};
+      }
+      console.log('[multimedia-dashboard] realtime event', {
+        type: event.type,
+        payload,
+      });
+      refreshFromRealtime();
+    };
+
+    source.addEventListener('connected', (event) => {
+      console.log('[multimedia-dashboard] realtime connected', event.data || null);
+      if (realtime.pollTimer) {
+        clearInterval(realtime.pollTimer);
+        realtime.pollTimer = null;
+      }
+    });
+    source.addEventListener('file_status_changed', onRealtimeFileEvent);
+    source.addEventListener('file_created', onRealtimeFileEvent);
+    source.addEventListener('file_updated', onRealtimeFileEvent);
+    source.addEventListener('file_deleted', onRealtimeFileEvent);
+
+    source.onerror = () => {
+      console.warn('[multimedia-dashboard] realtime stream disconnected, reconnecting...');
+      if (realtime.source) {
+        realtime.source.close();
+        realtime.source = null;
+      }
+      startPollingFallback();
+      if (!realtime.reconnectTimer) {
+        realtime.reconnectTimer = setTimeout(() => {
+          realtime.reconnectTimer = null;
+          startRealtimeSync();
+        }, 5000);
+      }
+    };
   };
   const renderMembers = () => {
     if (!els.membersTableBody) return;
@@ -999,6 +1094,8 @@
     mountProfileEvents();
     mountReportEvents();
     mountSearchEvents();
+    startRealtimeSync();
+    window.addEventListener('beforeunload', stopRealtimeSync);
     await loadEverything();
   };
 

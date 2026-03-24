@@ -46,6 +46,7 @@ router.use((req, _res, next) => {
 });
 
 router.get('/dashboard/summary', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getDashboardSummary));
+router.get('/stream', multimediaHeadController.streamEvents);
 
 router.get('/members', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.listMembers));
 router.get('/members/:id', requireRole('multimedia_head'), asyncHandler(multimediaHeadController.getMember));

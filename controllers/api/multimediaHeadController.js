@@ -14,6 +14,7 @@ const ASSIGNED_TEAMS = [...MEMBER_ROLES, 'all_teams'];
 const FILE_STATUS = ['pending', 'processing', 'done'];
 const ANNOUNCEMENT_AUDIENCE = ['students', 'multimedia_team', 'all'];
 const GOOGLE_DRIVE_HOSTS = ['drive.google.com', 'docs.google.com'];
+const sseClients = new Set();
 
 const toInt = (value) => {
   const parsed = Number(value);
@@ -25,6 +26,27 @@ const normalizeSortDir = (value) => (String(value || '').toUpperCase() === 'ASC'
 const normalizeEnum = (value, allowed, fallback = null) => {
   const normalized = String(value || '').trim().toLowerCase();
   return allowed.includes(normalized) ? normalized : fallback;
+};
+
+const writeSse = (res, eventName, payload) => {
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+};
+
+const canBroadcastFileEventToRole = (role, assignedTeam) => {
+  if (['superadmin', 'admin', MULTIMEDIA_HEAD_ROLE, 'multimedia_member'].includes(role)) {
+    return true;
+  }
+  return canAccessAssignedTeam(role, assignedTeam);
+};
+
+const broadcastRealtimeFileEvent = (eventName, payload) => {
+  for (const client of sseClients) {
+    if (!canBroadcastFileEventToRole(client.role, payload.assigned_team)) {
+      continue;
+    }
+    writeSse(client.res, eventName, payload);
+  }
 };
 
 const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || '').trim());
@@ -253,6 +275,40 @@ const ensureFileRoleAccess = (req, fileRow) => {
     return false;
   }
   return true;
+};
+
+const streamEvents = (req, res) => {
+  const role = req.user?.role || req.session?.user?.role || '';
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  const client = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    role,
+    res,
+  };
+  sseClients.add(client);
+
+  writeSse(res, 'connected', {
+    ok: true,
+    client_id: client.id,
+    role,
+    ts: new Date().toISOString(),
+  });
+
+  const heartbeat = setInterval(() => {
+    writeSse(res, 'heartbeat', { ts: new Date().toISOString() });
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(client);
+  });
 };
 
 const getDashboardSummary = async (_req, res) => {
@@ -719,6 +775,16 @@ const createFile = async (req, res) => {
     actor.id
   );
 
+  broadcastRealtimeFileEvent('file_created', {
+    file_id: fileId,
+    title,
+    assigned_team: assignedTeam,
+    status: 'pending',
+    updated_by: actor.name,
+    updated_by_role: actor.role,
+    ts: new Date().toISOString(),
+  });
+
   return res.status(201).json({
     ok: true,
     message: 'Google Drive link saved successfully',
@@ -779,6 +845,17 @@ const updateFile = async (req, res) => {
 
   await writeActivityLog(req, 'Updated multimedia file', `${title} (${assignedTeam}/${status})`);
 
+  const actor = getActor(req);
+  broadcastRealtimeFileEvent('file_updated', {
+    file_id: fileId,
+    title,
+    assigned_team: assignedTeam,
+    status,
+    updated_by: actor.name,
+    updated_by_role: actor.role,
+    ts: new Date().toISOString(),
+  });
+
   return res.json({ ok: true, message: 'File updated successfully' });
 };
 
@@ -800,6 +877,17 @@ const deleteFile = async (req, res) => {
   }
 
   await writeActivityLog(req, 'Deleted multimedia file', `${file.title} (${file.assigned_team})`);
+
+  const actor = getActor(req);
+  broadcastRealtimeFileEvent('file_deleted', {
+    file_id: fileId,
+    title: file.title,
+    assigned_team: file.assigned_team,
+    status: file.status,
+    updated_by: actor.name,
+    updated_by_role: actor.role,
+    ts: new Date().toISOString(),
+  });
 
   return res.json({ ok: true, message: 'File deleted successfully' });
 };
@@ -832,6 +920,17 @@ const changeFileStatus = async (req, res) => {
     fileId,
     actor.id
   );
+
+  broadcastRealtimeFileEvent('file_status_changed', {
+    file_id: fileId,
+    title: file.title,
+    assigned_team: file.assigned_team,
+    previous_status: file.status,
+    status: nextStatus,
+    updated_by: actor.name,
+    updated_by_role: actor.role,
+    ts: new Date().toISOString(),
+  });
 
   return res.json({ ok: true, message: 'File status updated successfully' });
 };
@@ -1226,6 +1325,7 @@ const changePassword = async (req, res) => {
 };
 
 module.exports = {
+  streamEvents,
   getDashboardSummary,
   listMembers,
   getMember,
